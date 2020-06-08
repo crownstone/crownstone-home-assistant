@@ -1,16 +1,11 @@
 """The Crownstone integration."""
 import logging
-from functools import wraps
 
 from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
 from homeassistant.core import HomeAssistant
 
 from .hub import CrownstoneHub
-
-from .const import (
-    DOMAIN,
-    CONF_SPHERE,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

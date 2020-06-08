@@ -126,7 +126,7 @@ class Crownstone(Light):
                             self.unique_id, hass_to_crownstone_brightness(kwargs[ATTR_BRIGHTNESS])
                         )
                     else:
-                        await self.hub.uart.set_brightness(
+                        await self.crownstone.set_brightness(
                             (hass_to_crownstone_brightness(kwargs[ATTR_BRIGHTNESS]) * 100)
                         )
                 else:
