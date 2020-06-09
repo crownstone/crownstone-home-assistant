@@ -29,6 +29,13 @@ To activate the venv type:
 ```console
 $ source venv/bin/activate
 ```
+## Crownstone dependencies
+Crownstone integration has 3 dependencies.<br>
+Activate your venv and run:
+```console
+$ pip install crownstone-uart crownstone-cloud crownstone-sse
+```
+These should be installed automatically by the integration, this is just in case you are missing something.
 
 ## Install Home Assistant
 You can install Home Assistant by activating your venv and running:
