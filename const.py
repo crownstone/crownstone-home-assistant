@@ -8,15 +8,12 @@ CROWNSTONE_TYPES = {
     "CROWNSTONE_USB": "Crownstone USB",
     "BUILTIN": "Crownstone built-in",
     "BUILTIN_ONE": "Crownstone built-in one",
-    "GUIDESTONE": "Crownstone guidestone"
+    "GUIDESTONE": "Crownstone guidestone",
 }
 
-PRESENCE_SPHERE = {
-    "icon": "mdi:earth",
-    "description": "Sphere presence"
-}
+PRESENCE_SPHERE = {"icon": "mdi:earth", "description": "Sphere presence"}
 
 PRESENCE_LOCATION = {
     "icon": "mdi:map-marker-radius",
-    "description": "Location presence"
+    "description": "Location presence",
 }

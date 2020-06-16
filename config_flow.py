@@ -1,17 +1,16 @@
-""" Config flow for Crownstone integration """
-
+"""Flow handler for Crownstone."""
 import logging
-import voluptuous as vol
 from typing import Optional
 
 from crownstone_cloud import CrownstoneCloud
 from crownstone_cloud.exceptions import (
     CrownstoneAuthenticationError,
-    CrownstoneUnknownError
+    CrownstoneUnknownError,
 )
+import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_ID, CONF_PASSWORD, CONF_EMAIL
+from homeassistant.const import CONF_EMAIL, CONF_ID, CONF_PASSWORD
 from homeassistant.helpers import aiohttp_client
 
 from .const import CONF_SPHERE, DOMAIN
@@ -26,6 +25,7 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     def __init__(self):
+        """Initialize the flow."""
         self.cloud: Optional[CrownstoneCloud] = None
         self.login_info = None
 
@@ -34,19 +34,16 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is None:
             return self.async_show_form(
-                step_id='user',
+                step_id="user",
                 data_schema=vol.Schema(
-                    {
-                        vol.Required(CONF_EMAIL): str,
-                        vol.Required(CONF_PASSWORD): str,
-                    }
+                    {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str, }
                 ),
             )
 
         self.cloud = CrownstoneCloud(
             email=user_input[CONF_EMAIL],
             password=user_input[CONF_PASSWORD],
-            websession=aiohttp_client.async_get_clientsession(self.hass)
+            websession=aiohttp_client.async_get_clientsession(self.hass),
         )
 
         # handle login errors on setup form
@@ -58,37 +55,31 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # start next flow
             return await self.async_step_sphere()
         except CrownstoneAuthenticationError as auth_error:
-            if auth_error.type == 'LOGIN_FAILED':
-                errors['base'] = 'invalid_auth'
-            if auth_error.type == 'LOGIN_FAILED_EMAIL_NOT_VERIFIED':
-                errors['base'] = 'account_not_verified'
-            if auth_error.type == 'USERNAME_EMAIL_REQUIRED':
-                errors['base'] = 'auth_input_none'
+            if auth_error.type == "LOGIN_FAILED":
+                errors["base"] = "invalid_auth"
+            if auth_error.type == "LOGIN_FAILED_EMAIL_NOT_VERIFIED":
+                errors["base"] = "account_not_verified"
+            if auth_error.type == "USERNAME_EMAIL_REQUIRED":
+                errors["base"] = "auth_input_none"
         except CrownstoneUnknownError:
-            errors['base'] = 'unknown_error'
+            errors["base"] = "unknown_error"
 
         # show form again, with the error
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_EMAIL): str,
-                    vol.Required(CONF_PASSWORD): str,
-                }
+                {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str, }
             ),
-            errors=errors
+            errors=errors,
         )
 
     async def async_step_sphere(self, user_input=None):
+        """Handle the step for selecting a sphere."""
         errors = {}
         if user_input is None:
             return self.async_show_form(
                 step_id="sphere",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required(CONF_SPHERE): str,
-                    }
-                ),
+                data_schema=vol.Schema({vol.Required(CONF_SPHERE): str, }),
             )
         # get the spheres for the user
         await self.cloud.spheres.update()
@@ -118,10 +109,6 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return self.async_show_form(
                 step_id="sphere",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required(CONF_SPHERE): str,
-                    }
-                ),
-                errors=errors
+                data_schema=vol.Schema({vol.Required(CONF_SPHERE): str, }),
+                errors=errors,
             )

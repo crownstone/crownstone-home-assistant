@@ -1,58 +1,51 @@
-import logging
+"""Code to set up all communications with Crownstones."""
 import asyncio
-from homeassistant.core import (
-    callback,
-    HomeAssistant,
-    Event
+import logging
+from typing import Optional
+
+from crownstone_cloud import CrownstoneCloud
+from crownstone_cloud.exceptions import (
+    CrownstoneAuthenticationError,
+    CrownstoneUnknownError,
 )
-from homeassistant.const import CONF_PASSWORD, CONF_EMAIL
+from crownstone_cloud.lib.cloudModels.spheres import Sphere
+from crownstone_sse import CrownstoneSSE
+from crownstone_sse.const import (
+    EVENT_PRESENCE_ENTER_LOCATION,
+    EVENT_PRESENCE_ENTER_SPHERE,
+    EVENT_PRESENCE_EXIT_SPHERE,
+)
+from crownstone_sse.events.PresenceEvent import PresenceEvent
+
 from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
-from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, EVENT_HOMEASSISTANT_STOP
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from crownstone_cloud.exceptions import (
-    CrownstoneAuthenticationError,
-    CrownstoneUnknownError
-)
-
-from crownstone_cloud import CrownstoneCloud
-from crownstone_cloud.lib.cloudModels.spheres import Sphere
-from crownstone_uart import CrownstoneUart, UartEventBus, UartTopics
-from crownstone_sse import CrownstoneSSE
-from crownstone_sse.const import (
-    EVENT_SWITCH_STATE_UPDATE,
-    EVENT_PRESENCE_ENTER_LOCATION,
-    EVENT_PRESENCE_EXIT_LOCATION,
-    EVENT_PRESENCE_ENTER_SPHERE,
-    EVENT_PRESENCE_EXIT_SPHERE
-)
-from crownstone_sse.events.PresenceEvent import PresenceEvent
-from crownstone_sse.events.SwitchStateUpdateEvent import SwitchStateUpdateEvent
-
 from .const import CONF_SPHERE, DOMAIN
-from typing import Optional
+from .helpers import UartManager
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class CrownstoneHub:
-    """Manages all Crownstone IO"""
+    """Manage all Crownstone IO."""
 
     def __init__(self, hass, config_entry) -> None:
+        """Initialize the hub."""
         self.sphere: Optional[Sphere] = None
         self.config_entry: ConfigEntry = config_entry
         self.hass: HomeAssistant = hass
         self.cloud: Optional[CrownstoneCloud] = None
-        self.uart: Optional[CrownstoneUart] = None
+        self.uart_manager: Optional[UartManager] = None
         self.sse: Optional[CrownstoneSSE] = None
 
     async def async_setup(self) -> bool:
         """
-        Setup the Crownstone hub.
+        Set up the Crownstone hub.
 
         The hub is a combination of Crownstone cloud, Crownstone SSE and Crownstone uart.
-
         Returns True if the setup was successful.
         """
         # Setup email and password gained from config flow
@@ -64,13 +57,17 @@ class CrownstoneHub:
             email=customer_email,
             password=customer_password,
             loop=self.hass.loop,
-            websession=aiohttp_client.async_get_clientsession(self.hass)
+            websession=aiohttp_client.async_get_clientsession(self.hass),
         )
         # Login
         try:
             await self.cloud.initialize()
         except CrownstoneAuthenticationError as auth_err:
-            _LOGGER.error("Auth error during login with type: %s and message: %s", auth_err.type, auth_err.message)
+            _LOGGER.error(
+                "Auth error during login with type: %s and message: %s",
+                auth_err.type,
+                auth_err.message,
+            )
             return False
         except CrownstoneUnknownError:
             _LOGGER.error("Unknown error during login")
@@ -79,57 +76,53 @@ class CrownstoneHub:
         # set the sphere we chose to setup in the flow
         self.sphere = self.cloud.spheres.find(self.config_entry.data[CONF_SPHERE])
 
-        # Create uart instance
-        self.uart = CrownstoneUart()
-
-        # this code could block forever, because a crownstone usb could never be connected.
-        # if an usb is connected however, uart.is_ready() returns whether the usb is ready or not.
-        self.hass.async_create_task(
-            self.uart.initialize_usb('/dev/ttyS3')
-        )
+        # Create uart manager to manage usb connections
+        # uart.is_ready() returns whether the usb is ready or not.
+        self.uart_manager = UartManager()
+        self.uart_manager.start()
 
         # Create SSE instance
         self.sse = CrownstoneSSE(customer_email, customer_password)
         self.sse.set_access_token(self.cloud.get_access_token())
         self.sse.start()
 
-        # switch state update
-        self.sse.add_event_listener(EVENT_SWITCH_STATE_UPDATE, self.update_switch_state_cloud)
-        UartEventBus.subscribe(UartTopics.newDataAvailable, self.update_switch_state_usb)
         # presence updates
         self.sse.add_event_listener(EVENT_PRESENCE_ENTER_SPHERE, self.update_presence)
-        self.sse.add_event_listener(EVENT_PRESENCE_EXIT_SPHERE, self.update_presence)
         self.sse.add_event_listener(EVENT_PRESENCE_ENTER_LOCATION, self.update_presence)
-        self.sse.add_event_listener(EVENT_PRESENCE_EXIT_LOCATION, self.update_presence)
+        self.sse.add_event_listener(EVENT_PRESENCE_EXIT_SPHERE, self.update_presence)
 
         # create listener for when home assistant is stopped
         self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self.async_stop)
 
         # register presence entities
         self.hass.async_create_task(
-            self.hass.config_entries.async_forward_entry_setup(self.config_entry, 'sensor')
+            self.hass.config_entries.async_forward_entry_setup(
+                self.config_entry, "sensor"
+            )
         )
 
         # register crownstone entities
         self.hass.async_create_task(
-            self.hass.config_entries.async_forward_entry_setup(self.config_entry, 'light')
+            self.hass.config_entries.async_forward_entry_setup(
+                self.config_entry, "light"
+            )
         )
 
         return True
 
     async def async_reset(self) -> bool:
         """
-        Reset the hub after entry removal
+        Reset the hub after entry removal.
 
         Config flow will ensure the right email and password are provided.
         If an authentication error still occurs, return.
 
-        If the setup was successful, unload forwarded entry
+        If the setup was successful, unload forwarded entry.
         """
         # reset RequestHandler instance
         self.cloud.reset()
         # stop uart
-        self.uart.stop()
+        self.uart_manager.stop()
         # stop sse client
         await self.sse.async_stop()
 
@@ -140,53 +133,47 @@ class CrownstoneHub:
         # unload all platform entities
         results = await asyncio.gather(
             self.hass.config_entries.async_forward_entry_unload(
-                self.config_entry, 'sensor'
+                self.config_entry, "sensor"
             ),
             self.hass.config_entries.async_forward_entry_unload(
-                self.config_entry, 'light'
-            )
+                self.config_entry, "light"
+            ),
         )
 
         return False not in results
 
     @callback
-    def update_switch_state_cloud(self, switch_state_event: SwitchStateUpdateEvent) -> None:
-        """Update the switch state of a crownstone via the cloud."""
-        sphere = self.cloud.spheres.find_by_id(switch_state_event.sphere_id)
-        crownstone = sphere.crownstones.find_by_id(switch_state_event.cloud_id)
-        crownstone.state = switch_state_event.switch_state
-
-        # send signal for state update
-        async_dispatcher_send(self.hass, DOMAIN)
-
-    @callback
-    def update_switch_state_usb(self, data):
-        """Update the switch state of a crownstone via usb"""
-        crownstone = self.sphere.crownstones.find_by_uid(data['id'])
-        if crownstone:
-            crownstone.state = data['switchState']
-            # send signal for state update
-            async_dispatcher_send(self.hass, DOMAIN)
-
-    @callback
     def update_presence(self, presence_event: PresenceEvent) -> None:
-        """Updates the presence in a location or in the sphere."""
+        """Update the presence in a location or in the sphere."""
         update_sphere = self.cloud.spheres.find_by_id(presence_event.sphere_id)
         if update_sphere.cloud_id == self.sphere.cloud_id:
             user = self.sphere.users.find_by_id(presence_event.user_id)
 
-            if presence_event.type == 'enterLocation':
-                location = self.sphere.locations.find_by_id(presence_event.location_id)
-                location.present_people.append(user.cloud_id)
+            if presence_event.type == EVENT_PRESENCE_ENTER_LOCATION:
+                # remove the user from all locations
+                # a user can only be in one location at the time, so make sure there are no duplicates.
+                # we only have to listen for enter location, to see a data change.
+                for location in self.sphere.locations:
+                    if user.cloud_id in location.present_people:
+                        location.present_people.remove(user.cloud_id)
+                # add the user in the entered location
+                location_entered = self.sphere.locations.find_by_id(
+                    presence_event.location_id
+                )
+                location_entered.present_people.append(user.cloud_id)
 
-            if presence_event.type == 'exitLocation':
-                location = self.sphere.locations.find_by_id(presence_event.location_id)
-                location.present_people.remove(user.cloud_id)
+            if presence_event.type == EVENT_PRESENCE_ENTER_SPHERE:
+                # check if the user id is already in the sphere.
+                if user.cloud_id in self.sphere.present_people:
+                    # do nothing
+                    pass
+                else:
+                    # add user to the present people
+                    self.sphere.present_people.append(user.cloud_id)
 
-            if presence_event.type == 'enterSphere':
-                self.sphere.present_people.append(user.cloud_id)
-
-            if presence_event.type == 'exitSphere':
+            if presence_event.type == EVENT_PRESENCE_EXIT_SPHERE:
+                # user has left the sphere.
+                # remove the user from the present people.
                 self.sphere.present_people.remove(user.cloud_id)
 
         # send signal for state update
@@ -196,4 +183,4 @@ class CrownstoneHub:
     async def async_stop(self, event: Event) -> None:
         """Close SSE client (thread) and uart bridge."""
         await self.sse.async_stop()
-        self.uart.stop()
+        self.uart_manager.stop()

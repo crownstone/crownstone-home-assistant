@@ -1,27 +1,42 @@
-"""Platform for stone integration."""
+"""Support for presence detection of Crownstone."""
 import logging
 from typing import Any, Dict, Optional
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity import Entity
 
-from .const import DOMAIN, PRESENCE_SPHERE, PRESENCE_LOCATION
+from .const import DOMAIN, PRESENCE_LOCATION, PRESENCE_SPHERE
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+) -> None:
     """Set up the sensor platform."""
     crownstone_hub = hass.data[DOMAIN][entry.entry_id]
 
     # add sphere presence entity
-    entities = [Presence(crownstone_hub, crownstone_hub.sphere, PRESENCE_SPHERE["description"],
-                         PRESENCE_SPHERE["icon"])]
+    entities = [
+        Presence(
+            crownstone_hub,
+            crownstone_hub.sphere,
+            PRESENCE_SPHERE["description"],
+            PRESENCE_SPHERE["icon"],
+        )
+    ]
     # add location presence entities
     for location in crownstone_hub.sphere.locations:
-        entities.append(Presence(crownstone_hub, location, PRESENCE_LOCATION["description"], PRESENCE_LOCATION["icon"]))
+        entities.append(
+            Presence(
+                crownstone_hub,
+                location,
+                PRESENCE_LOCATION["description"],
+                PRESENCE_LOCATION["icon"],
+            )
+        )
 
     async_add_entities(entities, True)
 
@@ -42,22 +57,22 @@ class Presence(Entity):
 
     @property
     def name(self) -> str:
-        """Return the name of this presence holder"""
+        """Return the name of this presence holder."""
         return self.presence_holder.name
 
     @property
     def icon(self) -> Optional[str]:
-        """Return the icon"""
+        """Return the icon."""
         return self._icon
 
     @property
     def unique_id(self) -> str:
-        """Return the unique ID"""
+        """Return the unique ID."""
         return self.presence_holder.unique_id
 
     @property
     def cloud_id(self) -> str:
-        """Return the cloud id of this presence holder"""
+        """Return the cloud id of this presence holder."""
         return self.presence_holder.cloud_id
 
     @property
@@ -72,7 +87,7 @@ class Presence(Entity):
             user = self.hub.sphere.users.find_by_id(user_id)
             _state.append(user.first_name)
 
-        return ', '.join(_state)
+        return ", ".join(_state)
 
     @property
     def state_attributes(self) -> Optional[Dict[str, Any]]:
@@ -89,13 +104,21 @@ class Presence(Entity):
         return attributes
 
     @property
+    def available(self) -> bool:
+        """Return if the presence sensor is available."""
+        if self.hub.sse.state == "running":
+            return True
+        else:
+            return False
+
+    @property
     def device_info(self) -> Dict[str, Any]:
-        """Return device information"""
+        """Return device information."""
         return {
             "identifiers": {(DOMAIN, self.unique_id)},
             "name": self.name,
             "manufacturer": "Crownstone",
-            "model": self.description
+            "model": self.description,
         }
 
     async def async_added_to_hass(self) -> None:
