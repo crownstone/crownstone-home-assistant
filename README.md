@@ -44,18 +44,6 @@ $ script/setup
 ```
 from the core folder.
 
-## Configuration
-The configuration folder is in a different location for each system.
-* Linux: ~/.homeassistant
-* HassOS: /config
-* MacOS: ~/.homeassistant
-* Docker: /config
-
-# Installing the Crownstone integration for debug
-
-1. First, create a folder called "custom_components" in your configuration folder. See above for the location.
-2. go to custom_components and clone this repo in the folder.
-
 # Running Home Assistant
 If you did the previous steps correctly, Home Assistant should detect the custom_components folder you just added, and will add the Crownstone integration to Home Assistant.<br>
 
@@ -83,6 +71,20 @@ Of course, replace this ip address with your own ip address.<br>
 In the Home Asssistant frontend, simply follow the steps to set it up.
 
 # Adding the Crownstone integration
+
+## Configuration
+The configuration folder is in a different location for each system.
+* Linux: ~/.homeassistant
+* HassOS: /config
+* MacOS: ~/.homeassistant
+* Docker: /config
+
+## Installing the Crownstone integration
+
+1. First, create a folder called "custom_components" in your configuration folder. See above for the location.
+2. go to custom_components and clone this repo in the folder.
+
+## Add the integration in the frontend
 In the Home Assistant frontend, do the following:
 1. On bottom left, click on "settings"
 2. Click on "integrations"
