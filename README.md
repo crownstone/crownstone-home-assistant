@@ -91,3 +91,13 @@ In the Home Assistant frontend, do the following:
 3. All the way on bottom right, click the orange button with the "+" on it
 4. Select Crownstone from the list
 5. Follow the steps
+
+# Logging
+
+To see logs, edit the file "configuration.yaml" in the configuration folder, and add:
+```yaml
+logger:
+      default: debug
+````
+
+You can set the logger to display info or debug logs, warnings and errors are displayed by default.
