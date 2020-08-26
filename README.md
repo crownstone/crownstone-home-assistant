@@ -115,13 +115,13 @@ automation:
 
 Note that these triggers are `event based`. Multiple users and all users triggers are experimental. Let's say a trigger will execute an action when 3 people have entered a room. The action will ONLY execute when there's an enter event received for every one of the users. 
 
-The events are registered, which means that if a user enters a room, but leaves shortly after, the event for entered stays registered. If the other 2 users in the trigger then enter the room, the action will STILL execute. Make sure you select the correct event for the occasion. Using a single user trigger to execute an action will always be the safest option.
+The events are registered, which means that if a user enters a room, but leaves shortly after, the event for entered stays registered. If the other 2 users in the trigger then enter the room, the action will STILL execute. Make sure you select the correct trigger for the occasion. Using a single user trigger to execute an action will always be the safest option.
 
 # Troubleshooting
 
 1. When I switch my Crownstone using the app, the change isn't visible in Home Assistant, why?
 
-We chose not to update the state in Home Assistant because the state isn't always known. When using switchcraft for example, the state of the Crownstone is not updated in the cloud. The safest option is to only let Home Assistant change the state of it's entities. When you switch your Crownstone on in the app, and then want to switch it off using the HA dashboard, simply switch it on and then off in HA.
+We chose not to update the state in Home Assistant externally because the state isn't always known. When using switchcraft for example, the state of the Crownstone is not updated in the cloud. The safest option is to only let Home Assistant change the state of it's entities. When you switch your Crownstone on in the app, and then want to switch it off using the HA dashboard, simply switch it on and then off in HA.
 
 2. I updated some data / Crownstone firmware in the Crownstone app, but it is not updated in Home Assistant
 
