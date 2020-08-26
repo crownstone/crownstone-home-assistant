@@ -1,0 +1,42 @@
+{
+  "title": "Crownstone",
+  "config": {
+    "abort": {
+      "already_configured": "This Sphere is already configured."
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Crownstone Cloud, Check the internet connection and try again.",
+      "account_not_verified": "Account not verified. Please activate your account through the activation email from Crownstone.",
+      "invalid_auth": "Invalid email / password.",
+      "auth_input_none": "Field for email is empty. Please fill in both fields and try again.",
+      "unknown_error": "Unexpected error occurred."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "password": "Password",
+          "username": "Email"
+        },
+        "description": "Enter your email and password for Crownstone.",
+        "title": "Crownstone"
+      },
+      "sphere": {
+        "data": {
+          "sphere": "Sphere name"
+        },
+        "description": "Select a Sphere that has to be configured in Home Assistant.",
+        "title": "Sphere"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "user_entered": "A user has entered the {entity_name}",
+      "user_left": "A user has left the {entity_name}",
+      "multiple_entered": "Multiple users have entered the {entity_name}",
+      "multiple_left": "Multiple users have left the {entity_name}",
+      "all_entered": "All users have entered the {entity_name}",
+      "all_left": "All users have left the {entity_name}"
+    }
+  }
+}

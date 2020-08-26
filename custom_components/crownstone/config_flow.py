@@ -13,7 +13,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_ID, CONF_PASSWORD
 from homeassistant.helpers import aiohttp_client
 
-from .const import CONF_SPHERE, DOMAIN
+from .const import CONF_SPHERE, DOMAIN  # pylint: disable=unused-import
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the flow."""
         self.cloud: Optional[CrownstoneCloud] = None
         self.login_info = None
+        self.spheres = []
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
@@ -36,7 +37,7 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_show_form(
                 step_id="user",
                 data_schema=vol.Schema(
-                    {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str, }
+                    {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}
                 ),
             )
 
@@ -48,8 +49,7 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         # handle login errors on setup form
         try:
-            await self.cloud.login()
-
+            await self.cloud.async_login()
             # save email and password for later use
             self.login_info = user_input
             # start next flow
@@ -68,47 +68,48 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str, }
+                {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}
             ),
             errors=errors,
         )
 
     async def async_step_sphere(self, user_input=None):
         """Handle the step for selecting a sphere."""
-        errors = {}
-        if user_input is None:
-            return self.async_show_form(
-                step_id="sphere",
-                data_schema=vol.Schema({vol.Required(CONF_SPHERE): str, }),
-            )
         # get the spheres for the user
-        await self.cloud.spheres.update()
-        # check if the typed name exists
-        if self.cloud.spheres.find(user_input[CONF_SPHERE]) is not None:
-            # set the unique id
-            await self.async_set_unique_id(user_input[CONF_SPHERE])
-            # make sure this sphere is only set up once
-            self._abort_if_unique_id_configured()
+        await self.cloud.spheres.async_update_sphere_data()
 
-            # cleanup RequestHandler
-            self.cloud.reset()
+        # only 1 sphere configured, don't show form and set this as sphere
+        if len(self.cloud.spheres.spheres) == 1:
+            user_input = {
+                CONF_SPHERE: next(iter(self.cloud.spheres.spheres.values())).name
+            }
 
-            # return data to main
-            return self.async_create_entry(
-                title=self.unique_id,
-                data={
-                    CONF_ID: self.unique_id,
-                    CONF_EMAIL: self.login_info[CONF_EMAIL],
-                    CONF_PASSWORD: self.login_info[CONF_PASSWORD],
-                    CONF_SPHERE: user_input[CONF_SPHERE],
-                },
-            )
-
-        else:
-            errors["base"] = "sphere_not_exist"
+        # show form with drop down menu
+        if user_input is None:
+            # generate sphere list
+            for sphere in self.cloud.spheres:
+                self.spheres.append(sphere.name)
 
             return self.async_show_form(
                 step_id="sphere",
-                data_schema=vol.Schema({vol.Required(CONF_SPHERE): str, }),
-                errors=errors,
+                data_schema=vol.Schema({CONF_SPHERE: vol.In(self.spheres)}),
             )
+
+        # set the unique id
+        await self.async_set_unique_id(user_input[CONF_SPHERE])
+        # make sure this sphere is only set up once
+        self._abort_if_unique_id_configured()
+
+        # cleanup RequestHandler
+        self.cloud.reset()
+
+        # return data to main
+        return self.async_create_entry(
+            title=self.unique_id,
+            data={
+                CONF_ID: self.unique_id,
+                CONF_EMAIL: self.login_info[CONF_EMAIL],
+                CONF_PASSWORD: self.login_info[CONF_PASSWORD],
+                CONF_SPHERE: user_input[CONF_SPHERE],
+            },
+        )

@@ -1,103 +1,132 @@
-# crownstone-home-assistant
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 
-Crownstone integration for Home Assistant
+# Crownstone Home Assistant Integration
 
-# Setting up a developer environment
+This is the HACS repository for the Crownstone Home Assistant integration!
 
-1. Go to the [Home Assistant repo](https://github.com/home-assistant/core) and click fork.
-2. Clone the Home Assistant repo from your fork.
-3. Make sure you have Python 3.7 installed on your system.
-4. It is recommended to run Home Assistant in Linux. To run Home Assistant on windows you can use Windows Subsystems for Linux. Refer to [Dev docs](https://developers.home-assistant.io/docs/development_environment) for more information and requirements about running in different operating systems.
+This repo contains files that are not available yet in Home Assistant Core. The main purpose is to make the integration available for testing. If you're using this integration and encounted a bug, please post an issue with the problem so we can resolve it.
 
-## Install dependencies:
-```console
-$ sudo apt-get install python3-pip python3-dev python3-venv
-```
-```console
-$ sudo apt-get install autoconf libssl-dev libxml2-dev libxslt1-dev libjpeg-dev libffi-dev libudev-dev zlib1g-dev pkg-config
-```
-```console
-$ sudo apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev libavfilter-dev
-```
+Also, if you have any great ideas to make the integration even better, let us know!
 
-## Set up a virtual environment
-Go to the core directory and run:
-```console
-$ python3.7 -m venv venv
-```
-To activate the venv type:
-```console
-$ source venv/bin/activate
-```
-## Crownstone dependencies
-Crownstone integration has 3 dependencies.<br>
-Activate your venv and run:
-```console
-$ pip install crownstone-uart crownstone-cloud crownstone-sse
-```
-These should be installed automatically by the integration, this is just in case you are missing something.
+# Installation
 
-## Install Home Assistant
-You can install Home Assistant by activating your venv and running:
-```console
-$ script/setup
-```
-from the core folder.
+## HACS
 
-# Running Home Assistant
-If you did the previous steps correctly, Home Assistant should detect the custom_components folder you just added, and will add the Crownstone integration to Home Assistant.<br>
+Visit the [HACS installation page](https://hacs.xyz/docs/installation/manual) to set up HACS in your Home Assistant.
 
-To run Home Assistant, go to the core folder, activate the venv, and run:
-```console
-$ hass
-```
+In the HACS store go to integrations and search for Crownstone.
 
-# Entering your Home Assistant installation
-Wait for Home Assistant to start. It may take some time on first boot, just be patient.<br>
+## Manually
 
-Look for your computer's IP address. To see this run:
-```console
-$ ifconfig
-```
-for example:
-```
-192.168.178.42
-```
-To enter your Home Assistant installation go to your prefered browser and type the following in the address bar:
-```
-http://192.168.178.42:8123
-```
-Of course, replace this ip address with your own ip address.<br>
-In the Home Asssistant frontend, simply follow the steps to set it up.
+Copy all files from custom_components/crownstone/ to custom_components/crownstone inside your HA config folder.
 
-# Adding the Crownstone integration
+# Features
 
-## Configuration
-The configuration folder is in a different location for each system.
-* Linux: ~/.homeassistant
-* HassOS: /config
-* MacOS: ~/.homeassistant
-* Docker: /config
+The Crownstone integration currently supports the following features:
 
-## Installing the Crownstone integration
+## Switching and dimming Crownstones
 
-1. First, create a folder called "custom_components" in your configuration folder. See above for the location.
-2. go to custom_components and clone this repo in the folder.
+Crownstone are respresented in the light platform. You can create a card in the overview and add your Crownstone entities to have a nice overview of your Crownstones! If a Crownstone supports dimming, there will be a brightness slider to dim your Crownstone.
 
-## Add the integration in the frontend
-In the Home Assistant frontend, do the following:
-1. On bottom left, click on "settings"
-2. Click on "integrations"
-3. All the way on bottom right, click the orange button with the "+" on it
-4. Select Crownstone from the list
-5. Follow the steps
+The default communication method to switch and dim Crownstones, is the cloud. Using a cloud, it can take 1-3 seconds before a crownstone switches. However, we added support for the Crownstone USB in Home Assistant. Plug the USB in and start Home Assistant, it should automatically start switching using the USB. Since the latencies are so low using the USB, switching and dimming will be instant!
 
-# Logging
+## Presence sensor
 
-To see logs, edit the file "configuration.yaml" in the configuration folder, and add:
+The unique selling point of Crownstone, the presence on room level, is also available in Home Assistant!
+
+The state sensor is a string of the first names of the people who are in the room. It is possbile for multiple people to be in the same room, the names of the users is separated by a comma.
+
+Apart from the room presence there is also sphere presence. this shows who is currently in the sphere (house, apartement). If a user is at home (in the sphere), the user's name will be shown in sphere presence and one of the room presence entities.
+
+The Crownstone app is leading the presence functionality, for any issues with your presence detection make sure to go to your Crownstone app and retrain your rooms. 4 Crownstones are required for the localisation on room level. If you don't have 4 Crownstones, it will only show your presence in the sphere (house).
+
+## Presence device triggers
+
+In order to create automations with the Crownstone presence detection on room level, device triggers are available. This way, you can use the Crownstone presence to turn on Hue lights, speakers or other awesome devices!
+
+The following device triggers are available for the Crownstone presence devices:
+- A user has left a room / the house
+- A user has entered a room / the house
+- Multiple users have entered a room / the house
+- Multiple users have left a room / the house
+- All users have entered a room / the house
+- All users have left a room / the house
+
+### Setting up an automation via de UI
+
+This is de easiest and recommended option. 
+- go to configuration -> automations. You can skip the automatic automation generation as it usually doesn't work too well.
+- go to configuration -> devices -> select device -> new automation -> select a trigger.
+
+### Setting up an automation via yaml
+
+you can use the following trigger types:
+- user_entered
+- user_left
+- multiple_entered
+- multiple_left
+- all_entered
+- all_left
+
+Example for 1 user entered a room:
+
 ```yaml
-logger:
-      default: debug
-````
+automation:
+  - alias: 'Turn desklamp on'
+    trigger:
+      entity_id: sensor.bedroom
+      type: user_entered
+      user: Ricardo Steijn
+    action:
+      service: light.turn_on
+      entity_id: light.lamp 
+```
 
-You can set the logger to display info or debug logs, warnings and errors are displayed by default.
+Example for multiple users leaving a room
+
+```yaml
+automation:
+  - alias: 'Turn music off'
+    trigger:
+      entity_id: sensor.livingroom
+      type: multiple_left
+      users:
+      - Ricardo Steijn
+      - Anne van Rossum
+    action:
+      service: media_player.turn_off
+      entity_id: media_player.livingroom_speaker
+```
+
+Example for all users leaving the house
+
+```yaml
+automation:
+  - alias: 'Turn all lights off'
+    trigger:
+      entity_id: sensor.house
+      type: all_left
+    action:
+      - service: light.turn_off
+        entity_id: light.lamp1
+      - service: light.turn_off
+        entity_id: light.lamp2
+```
+
+Note that these triggers are `event based`. Multiple users and all users triggers are experimental. Let's say a trigger will execute an action when 3 people have entered a room. The action will ONLY execute when there's an enter event received for every one of the users. 
+
+The events are registered, which means that if a user enters a room, but leaves shortly after, the event for entered stays registered. If the other 2 users in the trigger then enter the room, the action will STILL execute. Make sure you select the correct event for the occasion. Using a single user trigger to execute an action will always be the safest option.
+
+# Troubleshooting
+
+1. When I switch my Crownstone using the app, the change isn't visible in Home Assistant, why?
+
+We chose not to update the state in Home Assistant because the state isn't always known. When using switchcraft for example, the state of the Crownstone is not updated in the cloud. The safest option is to only let Home Assistant change the state of it's entities. When you switch your Crownstone on in the app, and then want to switch it off using the HA dashboard, simply switch it on and then off in HA.
+
+2. I updated some data / Crownstone firmware in the Crownstone app, but it is not updated in Home Assistant
+
+Dynamically updating data is not yet supported for the Crownstone integration. To register the changes in HA, you'll have to restart.
+
+3. Will there be an option to use power usage as trigger in Home Assistant?
+
+The power usage feature is on the roadmap for upcoming updates. Likely this will come whenever the Crownstone hub is finished.

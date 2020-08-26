@@ -29,3 +29,8 @@ class UartManager(threading.Thread):
     def stop(self) -> None:
         """Stop the uart manager."""
         self.uart_instance.stop()
+
+
+def set_to_dict(input_set: set):
+    """Convert a set to a dictionary."""
+    return {key: key for key in input_set}

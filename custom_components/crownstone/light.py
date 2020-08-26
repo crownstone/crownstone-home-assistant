@@ -2,17 +2,16 @@
 import logging
 from typing import Any, Dict, Optional
 
+from crownstone_cloud.const import DIMMING_ABILITY
+
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     SUPPORT_BRIGHTNESS,
     LightEntity,
 )
-from homeassistant.helpers.dispatcher import (
-    async_dispatcher_connect,
-    async_dispatcher_send,
-)
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import CROWNSTONE_TYPES, DOMAIN
+from .const import CROWNSTONE_EXCLUDE, CROWNSTONE_TYPES, DOMAIN, SIG_ABILITY_UPDATE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,9 +22,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     entities = []
     for crownstone in crownstone_hub.sphere.crownstones:
-        entities.append(
-            Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
-        )
+        # some don't support light features
+        if crownstone.type not in CROWNSTONE_EXCLUDE:
+            entities.append(
+                Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
+            )
 
     async_add_entities(entities, True)
 
@@ -44,9 +45,7 @@ class Crownstone(LightEntity):
     """
     Representation of a crownstone.
 
-    Light platform is used as crownstones behave like light switches (ON/OFF state).
-    Crownstones also support dimming.
-    Crownstones can be used for more electronic devices, it's main use case is for lights however.
+    Light platform is used to support dimming.
     """
 
     def __init__(self, crownstone, uart):
@@ -82,7 +81,7 @@ class Crownstone(LightEntity):
     @property
     def should_dim(self) -> bool:
         """Return if this crownstone is able to dim."""
-        return self.crownstone.dimming_enabled
+        return self.crownstone.abilities.get(DIMMING_ABILITY).is_enabled
 
     @property
     def brightness(self) -> float:
@@ -115,8 +114,7 @@ class Crownstone(LightEntity):
         """Return the supported features of this Crownstone."""
         if self.should_dim:
             return SUPPORT_BRIGHTNESS
-        else:
-            return 0
+        return 0
 
     @property
     def should_poll(self) -> bool:
@@ -126,34 +124,29 @@ class Crownstone(LightEntity):
     async def async_added_to_hass(self) -> None:
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
-            async_dispatcher_connect(self.hass, DOMAIN, self.async_write_ha_state)
+            async_dispatcher_connect(
+                self.hass, SIG_ABILITY_UPDATE, self.async_write_ha_state
+            )
         )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on this light via dongle or cloud."""
         if ATTR_BRIGHTNESS in kwargs:
             if self.should_dim:
-                if self.crownstone.dimming_synced_to_crownstone:
-                    if self.uart.is_ready():
-                        self.uart.dim_crownstone(
-                            self.unique_id,
-                            hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]),
-                        )
-                    else:
-                        await self.crownstone.set_brightness(
-                            hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])
-                        )
-                    # set brightness
-                    self.crownstone.state = hass_to_crownstone_state(
-                        kwargs[ATTR_BRIGHTNESS]
+                if self.uart.is_ready():
+                    self.uart.dim_crownstone(
+                        self.unique_id,
+                        hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]),
                     )
-                    # send signal for state update
-                    async_dispatcher_send(self.hass, DOMAIN)
                 else:
-                    _LOGGER.warning(
-                        "Dimming is enabled but not synced to crownstone yet. Make sure to be in your "
-                        "sphere and have Bluetooth enabled"
+                    await self.crownstone.async_set_brightness(
+                        hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])
                     )
+                # set brightness
+                self.crownstone.state = hass_to_crownstone_state(
+                    kwargs[ATTR_BRIGHTNESS]
+                )
+                self.async_write_ha_state()
             else:
                 _LOGGER.warning(
                     "Dimming is not enabled for this crownstone. Go to the crownstone app to enable it"
@@ -162,14 +155,12 @@ class Crownstone(LightEntity):
             self.uart.switch_crownstone(self.unique_id, on=True)
             # set state
             self.crownstone.state = 1
-            # send signal for state update
-            async_dispatcher_send(self.hass, DOMAIN)
+            self.async_write_ha_state()
         else:
-            await self.crownstone.turn_on()
+            await self.crownstone.async_turn_on()
             # set state
             self.crownstone.state = 1
-            # send signal for state update
-            async_dispatcher_send(self.hass, DOMAIN)
+            self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off this device via dongle or cloud."""
@@ -178,8 +169,7 @@ class Crownstone(LightEntity):
             self.uart.switch_crownstone(self.unique_id, on=False)
         else:
             # switch remotely using the cloud
-            await self.crownstone.turn_off()
+            await self.crownstone.async_turn_off()
 
         self.crownstone.state = 0
-        # send signal for state update
-        async_dispatcher_send(self.hass, DOMAIN)
+        self.async_write_ha_state()
