@@ -88,6 +88,11 @@ class Crownstone(LightEntity):
         return crownstone_state_to_hass(self.crownstone.state) > 0
 
     @property
+    def assumed_state(self) -> bool:
+        """Use assumed state because there is no state update confirmation."""
+        return True
+
+    @property
     def sw_version(self) -> str:
         """Return the firmware version on this crownstone."""
         return self.crownstone.sw_version
