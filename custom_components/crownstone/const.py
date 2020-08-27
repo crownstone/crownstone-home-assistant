@@ -8,7 +8,6 @@ LIGHT_PLATFORM = "light"
 # Signals
 SIG_STATE_UPDATE = "crownstone.state_update"
 SIG_TRIGGER_EVENT = "crownstone.trigger_event"
-SIG_ABILITY_UPDATE = "crownstone.ability_update"
 
 # Config flow
 CONF_SPHERE = "sphere"
