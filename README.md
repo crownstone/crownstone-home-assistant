@@ -30,6 +30,10 @@ Crownstone are respresented in the light platform. You can create a card in the 
 
 The default communication method to switch and dim Crownstones, is the cloud. Using a cloud, it can take 1-3 seconds before a crownstone switches. However, we added support for the Crownstone USB in Home Assistant. Plug the USB in and start Home Assistant, it should automatically start switching using the USB. Since the latencies are so low using the USB, switching and dimming will be instant!
 
+### Crownstone ability updates
+
+Currently, the Crownstone integration supports updating a Crownstone's ability during runtime. Once changed in the app, Home Assistant will reload your config entry, and re-initialize all your Crownstone entities.
+
 ## Presence sensor
 
 The unique selling point of Crownstone, the presence on room level, is also available in Home Assistant!
@@ -121,7 +125,7 @@ The events are registered, which means that if a user enters a room, but leaves 
 
 1. When I switch my Crownstone using the app, the change isn't visible in Home Assistant, why?
 
-We chose not to update the state in Home Assistant externally because the state isn't always known. When using switchcraft for example, the state of the Crownstone is not updated in the cloud. The safest option is to only let Home Assistant change the state of it's entities. When you switch your Crownstone on in the app, and then want to switch it off using the HA dashboard, simply switch it on and then off in HA.
+We chose not to update the state in Home Assistant externally because the state isn't always known. When using switchcraft for example, the state of the Crownstone is not updated in the cloud. The safest option is to only let Home Assistant change the state of it's entities. The Crownstone entities use assumed state which means you will ALWAYS be able to switch your Crownstones using Home Assistant, independed of the state in the app.
 
 2. I updated some data / Crownstone firmware in the Crownstone app, but it is not updated in Home Assistant
 

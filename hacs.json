@@ -2,6 +2,6 @@
   "name": "Crownstone",
   "render_readme": true,
   "domains": ["light", "sensor"],
-  "homeassistant": "0.114",
+  "homeassistant": "0.115",
   "iot_class": ["Assumed State", "Cloud Push"]
 }
