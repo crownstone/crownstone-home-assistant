@@ -72,6 +72,8 @@ you can use the following trigger types:
 - all_entered
 - all_left
 
+The names of the users are their **full name**, So first name + last name. You can see what name you have configured by entering the Crownstone app, and going to Settings -> My Account.
+
 Example for 1 user entered a room:
 
 ```yaml

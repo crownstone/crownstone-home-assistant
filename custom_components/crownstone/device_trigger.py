@@ -23,13 +23,11 @@ from homeassistant.components.device_automation import TRIGGER_BASE_SCHEMA
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
 )
-from homeassistant.components.homeassistant.triggers import event as event_trigger
 from homeassistant.const import (
     CONF_DEVICE,
     CONF_DEVICE_ID,
     CONF_DOMAIN,
     CONF_ENTITY_ID,
-    CONF_EVENT,
     CONF_PLATFORM,
     CONF_TYPE,
 )
@@ -152,25 +150,33 @@ async def async_attach_trigger(
     if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
         # match the entity_id of the entity which fired a state change
         # match the username of the person entered or left
-        event_type = None
-        if config[CONF_TYPE] == USER_ENTERED:
-            event_type = EVENT_USER_ENTERED
-        elif config[CONF_TYPE] == USER_LEFT:
-            event_type = EVENT_USER_LEFT
-
-        event_config = {
-            event_trigger.CONF_PLATFORM: CONF_EVENT,
-            event_trigger.CONF_EVENT_TYPE: event_type,
-            event_trigger.CONF_EVENT_DATA: {
-                CONF_ENTITY_ID: config[CONF_ENTITY_ID],
-                CONF_USER: config[CONF_USER],
-            },
+        event_data = {
+            CONF_ENTITY_ID: config[CONF_ENTITY_ID],
+            CONF_USER: config[CONF_USER],
         }
 
-        event_config = event_trigger.TRIGGER_SCHEMA(event_config)
-        return await event_trigger.async_attach_trigger(
-            hass, event_config, action, automation_info, platform_type=CONF_DEVICE
-        )
+        @callback
+        def handle_presence_event(event: Event):
+            """Listen for events and call action when the required event is received."""
+            if event.data == event_data:
+                hass.async_run_job(
+                    action,
+                    {
+                        "trigger": {
+                            "platform": CONF_DEVICE,
+                            "event": event,
+                            "description": f"event '{event.event_type}'",
+                        }
+                    },
+                    event.context,
+                )
+
+        # listen for either left or enter event
+        if config[CONF_TYPE] == USER_ENTERED:
+            return hass.bus.async_listen(EVENT_USER_ENTERED, handle_presence_event)
+        elif config[CONF_TYPE] == USER_LEFT:
+            return hass.bus.async_listen(EVENT_USER_LEFT, handle_presence_event)
+
     elif config[CONF_TYPE] in (
         MULTIPLE_USERS_ENTERED,
         MULTIPLE_USERS_LEFT,
@@ -197,6 +203,7 @@ async def async_attach_trigger(
 
         @callback
         def handle_presence_events(event: Event):
+            """Listen for events and calls action when all required events are received."""
             if event.data in event_registry:
                 # event received that's in the registry, remove it from the list
                 event_registry.remove(event.data)
@@ -205,7 +212,13 @@ async def async_attach_trigger(
             if not event_registry:
                 hass.async_run_job(
                     action,
-                    {"trigger": {"platform": CONF_DEVICE, "event": event}},
+                    {
+                        "trigger": {
+                            "platform": CONF_DEVICE,
+                            "event": event,
+                            "description": f"event '{event.event_type}'",
+                        }
+                    },
                     event.context,
                 )
                 # restore the registry

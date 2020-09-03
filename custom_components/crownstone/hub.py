@@ -17,9 +17,11 @@ from crownstone_sse.const import (
     EVENT_PRESENCE_ENTER_LOCATION,
     EVENT_PRESENCE_ENTER_SPHERE,
     EVENT_PRESENCE_EXIT_SPHERE,
+    EVENT_SYSTEM_STREAM_START,
 )
 from crownstone_sse.events.AbilityChangeEvent import AbilityChangeEvent
 from crownstone_sse.events.PresenceEvent import PresenceEvent
+from crownstone_sse.events.SystemEvent import SystemEvent
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, EVENT_HOMEASSISTANT_STOP
@@ -95,6 +97,9 @@ class CrownstoneHub:
         self.sse.set_access_token(self.cloud.get_access_token())
         self.sse.start()
 
+        # subscribe to SSE start update
+        self.sse.add_event_listener(EVENT_SYSTEM_STREAM_START, self.sse_start)
+
         # subscribe to user presence updates
         self.sse.add_event_listener(EVENT_PRESENCE_ENTER_SPHERE, self.update_presence)
         self.sse.add_event_listener(EVENT_PRESENCE_ENTER_LOCATION, self.update_presence)
@@ -137,11 +142,9 @@ class CrownstoneHub:
 
         If the setup was successful, unload forwarded entry.
         """
-        # reset RequestHandler instance
+        # stop services
         self.cloud.reset()
-        # stop uart
         self.uart_manager.stop()
-        # stop sse client
         await self.sse.async_stop()
 
         # authentication failed
@@ -159,6 +162,12 @@ class CrownstoneHub:
         )
 
         return False not in results
+
+    @callback
+    def sse_start(self, system_event: SystemEvent) -> None:
+        """Notify sensor entities that the SSE client has started."""
+        _LOGGER.debug(system_event.message)
+        async_dispatcher_send(self.hass, SIG_STATE_UPDATE)
 
     @callback
     def update_presence(self, presence_event: PresenceEvent) -> None:
@@ -223,5 +232,6 @@ class CrownstoneHub:
     @callback
     async def async_stop(self, event: Event) -> None:
         """Close SSE client (thread) and uart bridge."""
+        _LOGGER.debug(event.data)
         await self.sse.async_stop()
         self.uart_manager.stop()
