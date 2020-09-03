@@ -70,22 +70,24 @@ async def async_validate_trigger_config(
     hass: HomeAssistant, config: ConfigType
 ) -> ConfigType:
     """Validate config."""
-    # no entry data available yet, run this coroutine again after the rest of the tasks are completed
-    if hass.data[DOMAIN] == {}:
-        await hass.async_create_task(async_validate_trigger_config(hass, config))
-
     config = TRIGGER_SCHEMA(config)
 
-    # get set of crownstone users
-    crownstone_users = await get_crownstone_users(hass, config[CONF_ENTITY_ID])
+    user_schema = vol.Schema(
+        {vol.Required(CONF_USER): cv.string}, extra=vol.ALLOW_EXTRA
+    )
+    users_schema = vol.Schema(
+        {vol.Required(CONF_USERS): cv.ensure_list}, extra=vol.ALLOW_EXTRA
+    )
 
     if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
-        user = config[CONF_USER]
-        if not user or user not in crownstone_users:
+        try:
+            user_schema(config)
+        except vol.Invalid:
             raise InvalidDeviceAutomationConfig
     elif config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-        users = set(config[CONF_USERS])
-        if not users or not users.issubset(crownstone_users):
+        try:
+            users_schema(config)
+        except vol.Invalid:
             raise InvalidDeviceAutomationConfig
 
     return config
@@ -148,6 +150,10 @@ async def async_attach_trigger(
     crownstone_users = await get_crownstone_users(hass, config[CONF_ENTITY_ID])
 
     if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
+        # Check if the username exists in the Crownstone data
+        if config[CONF_USER] not in crownstone_users:
+            raise InvalidDeviceAutomationConfig
+
         # match the entity_id of the entity which fired a state change
         # match the username of the person entered or left
         event_data = {
@@ -183,6 +189,11 @@ async def async_attach_trigger(
         ALL_USERS_ENTERED,
         ALL_USERS_LEFT,
     ):
+        # check if the usernames exist in de crownstone data
+        config_users = set(config[CONF_USERS])
+        if not config_users.issubset(crownstone_users):
+            raise InvalidDeviceAutomationConfig
+
         # match the entity_id of the entity which fired a state change
         # cache incoming events based on the amount of users in config
         # the action will be executed when there is an event received for all user names.
