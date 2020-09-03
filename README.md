@@ -14,7 +14,7 @@ Also, if you have any great ideas to make the integration even better, let us kn
 
 Visit the [HACS installation page](https://hacs.xyz/docs/installation/manual) to set up HACS in your Home Assistant.
 
-In the HACS store, go to integrations, and click the button with 3 dots in the top right corner. Add the URL from this repo and click add.
+In the HACS store, click the "+" button in the bottom right corner, and search for Crownstone.
 
 ## Manually
 
