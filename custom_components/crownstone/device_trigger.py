@@ -189,10 +189,11 @@ async def async_attach_trigger(
         ALL_USERS_ENTERED,
         ALL_USERS_LEFT,
     ):
-        # check if the usernames exist in de crownstone data
-        config_users = set(config[CONF_USERS])
-        if not config_users.issubset(crownstone_users):
-            raise InvalidDeviceAutomationConfig
+        # check if the usernames exist in the Crownstone data
+        if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
+            config_users = set(config[CONF_USERS])
+            if not config_users.issubset(crownstone_users):
+                raise InvalidDeviceAutomationConfig
 
         # match the entity_id of the entity which fired a state change
         # cache incoming events based on the amount of users in config
