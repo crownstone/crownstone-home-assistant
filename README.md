@@ -56,68 +56,14 @@ The following device triggers are available for the Crownstone presence devices:
 - All users have entered a room / the house
 - All users have left a room / the house
 
-### Setting up an automation via de UI
+### Setting up an automation using the UI
 
-This is de easiest and recommended option. 
+This is the only possible option since it uses a device_id to identify the devices.
+
 - go to configuration -> automations. You can skip the automatic automation generation as it usually doesn't work too well.
 - go to configuration -> devices -> select device -> new automation -> select a trigger.
 
-### Setting up an automation via yaml
-
-you can use the following trigger types:
-- user_entered
-- user_left
-- multiple_entered
-- multiple_left
-- all_entered
-- all_left
-
 The names of the users are their **full name**, So first name + last name. You can see what name you have configured by entering the Crownstone app, and going to Settings -> My Account.
-
-Example for 1 user entered a room:
-
-```yaml
-automation:
-  - alias: 'Turn desklamp on'
-    trigger:
-      entity_id: sensor.bedroom
-      type: user_entered
-      user: Ricardo Steijn
-    action:
-      service: light.turn_on
-      entity_id: light.lamp 
-```
-
-Example for multiple users leaving a room
-
-```yaml
-automation:
-  - alias: 'Turn music off'
-    trigger:
-      entity_id: sensor.livingroom
-      type: multiple_left
-      users:
-      - Ricardo Steijn
-      - Anne van Rossum
-    action:
-      service: media_player.turn_off
-      entity_id: media_player.livingroom_speaker
-```
-
-Example for all users leaving the house
-
-```yaml
-automation:
-  - alias: 'Turn all lights off'
-    trigger:
-      entity_id: sensor.house
-      type: all_left
-    action:
-      - service: light.turn_off
-        entity_id: light.lamp1
-      - service: light.turn_off
-        entity_id: light.lamp2
-```
 
 Note that these triggers are `event based`. Multiple users and all users triggers are experimental. Let's say a trigger will execute an action when 3 people have entered a room. The action will ONLY execute when there's an enter event received for every one of the users. 
 
