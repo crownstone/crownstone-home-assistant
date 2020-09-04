@@ -4,21 +4,6 @@ from typing import List
 import voluptuous as vol
 
 from homeassistant.components.automation import AutomationActionType
-from homeassistant.components.crownstone.const import (
-    ALL_USERS_ENTERED,
-    ALL_USERS_LEFT,
-    CONF_USER,
-    CONF_USERS,
-    DOMAIN,
-    EVENT_USER_ENTERED,
-    EVENT_USER_LEFT,
-    MULTIPLE_USERS_ENTERED,
-    MULTIPLE_USERS_LEFT,
-    SENSOR_PLATFORM,
-    USER_ENTERED,
-    USER_LEFT,
-)
-from homeassistant.components.crownstone.helpers import set_to_dict
 from homeassistant.components.device_automation import TRIGGER_BASE_SCHEMA
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
@@ -34,6 +19,22 @@ from homeassistant.const import (
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry
 from homeassistant.helpers.typing import ConfigType
+
+from .const import (
+    ALL_USERS_ENTERED,
+    ALL_USERS_LEFT,
+    CONF_USER,
+    CONF_USERS,
+    DOMAIN,
+    EVENT_USER_ENTERED,
+    EVENT_USER_LEFT,
+    MULTIPLE_USERS_ENTERED,
+    MULTIPLE_USERS_LEFT,
+    SENSOR_PLATFORM,
+    USER_ENTERED,
+    USER_LEFT,
+)
+from .helpers import set_to_dict
 
 TRIGGER_TYPES = {
     USER_ENTERED,
@@ -83,12 +84,16 @@ async def async_validate_trigger_config(
         try:
             user_schema(config)
         except vol.Invalid:
-            raise InvalidDeviceAutomationConfig
+            raise InvalidDeviceAutomationConfig(
+                "User name not provided, or user name not of type string."
+            )
     elif config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
         try:
             users_schema(config)
         except vol.Invalid:
-            raise InvalidDeviceAutomationConfig
+            raise InvalidDeviceAutomationConfig(
+                "User names not provided, or user names not of type list."
+            )
 
     return config
 
@@ -152,7 +157,9 @@ async def async_attach_trigger(
     if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
         # Check if the username exists in the Crownstone data
         if config[CONF_USER] not in crownstone_users:
-            raise InvalidDeviceAutomationConfig
+            raise InvalidDeviceAutomationConfig(
+                f"Invalid username '{config[CONF_USER]}'. Make sure you are using the full name, case sensitive."
+            )
 
         # match the entity_id of the entity which fired a state change
         # match the username of the person entered or left
@@ -193,7 +200,9 @@ async def async_attach_trigger(
         if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
             config_users = set(config[CONF_USERS])
             if not config_users.issubset(crownstone_users):
-                raise InvalidDeviceAutomationConfig
+                raise InvalidDeviceAutomationConfig(
+                    f"Invalid user names in '{config_users}'. Makes sure you are using the full names, case sensitive."
+                )
 
         # match the entity_id of the entity which fired a state change
         # cache incoming events based on the amount of users in config
