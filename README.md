@@ -8,7 +8,7 @@ This repo contains files that are not available yet in Home Assistant Core. The 
 
 Also, if you have any great ideas to make the integration even better, let us know!
 
-<img src="images/dashboard.jpg" width="144" height="312" /> <img src="images/device_triggers.jpg" width="144" height="312" /> <img src="images/trigger_config.jpg" width="144" height="312" />
+<img src="images/dashboard.jpg" width="216" height="468" /> <img src="images/device_triggers.jpg" width="216" height="468" /> <img src="images/trigger_config.jpg" width="216" height="468" />
 
 # Installation
 
