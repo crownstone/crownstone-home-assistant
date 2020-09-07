@@ -1,6 +1,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/crownstone/crownstone-home-assistant?label=Latest%20release&style=for-the-badge)](https://github.com/crownstone/crownstone-home-assistant/releases)
 [![Maintained](https://img.shields.io/maintenance/yes/2020?style=for-the-badge)](https://github.com/RicArch97)
+![Github All Releases](https://img.shields.io/github/downloads/crownstone/crownstone-home-assistant/total.svg?label=Total%20downloads&style=for-the-badge&color=yellow)
 
 # Crownstone Home Assistant Integration
 
