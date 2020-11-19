@@ -4,7 +4,7 @@
 
 # Crownstone Home Assistant Integration
 
-<img src="images/crownstone_home_assistant.png" width="1628" height="763.5" />
+![Crownstone Home Assistant banner](/images/crownstone_home_assistant.png)
 
 # Features
 
@@ -45,7 +45,7 @@ Crownstone entities have some state attributes to provide more information about
 * Tap To Toggle (Enabled or Disabled)
 * Switchcraft (Enabled or Disabled)
 
-<img src="images/crownstone_entity.png" width="390" height="385" />
+![Crownstone entity](/images/crownstone_entity.png)
 
 # Presence
 
@@ -102,7 +102,7 @@ For `Crownstone Power usage changes` there are 3 options:
 
 You can have other devices react to peaks in power usage, send an event or notification, whatever you like!
 
-<img src="images/power_usage.png" width="356" height="479" /> 
+![Crownstone power usage](/images/power_usage.png)
 
 # Comparison
 
