@@ -15,6 +15,7 @@ from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_PLATFORM,
     CONF_TYPE,
+    DEVICE_CLASS_ENERGY,
 )
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry
@@ -105,18 +106,26 @@ async def async_get_triggers(hass: HomeAssistant, device_id: str) -> List[dict]:
 
     # Get all the integrations entities for all sensor devices from Crownstone and add triggers
     for entry in entity_registry.async_entries_for_device(registry, device_id):
+        # Sensor entities
         if entry.domain == SENSOR_PLATFORM:
+            if entry.device_class == DEVICE_CLASS_ENERGY:
+                # Devices that have a power usage sensor.
+                # these will use the default device triggers from sensor.
+                continue
 
-            for trigger in TRIGGER_TYPES:
-                triggers.append(
-                    {
-                        CONF_PLATFORM: CONF_DEVICE,
-                        CONF_DEVICE_ID: device_id,
-                        CONF_DOMAIN: DOMAIN,
-                        CONF_ENTITY_ID: entry.entity_id,
-                        CONF_TYPE: trigger,
-                    }
-                )
+            else:
+                # Devices with Crownstone presence sensor.
+                # These are sensors without a device class.
+                for trigger in TRIGGER_TYPES:
+                    triggers.append(
+                        {
+                            CONF_PLATFORM: CONF_DEVICE,
+                            CONF_DEVICE_ID: device_id,
+                            CONF_DOMAIN: DOMAIN,
+                            CONF_ENTITY_ID: entry.entity_id,
+                            CONF_TYPE: trigger,
+                        }
+                    )
 
     return triggers
 

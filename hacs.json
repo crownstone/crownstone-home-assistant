@@ -3,5 +3,5 @@
   "render_readme": true,
   "domains": ["light", "sensor"],
   "homeassistant": "0.114",
-  "iot_class": ["Assumed State", "Cloud Push"]
+  "iot_class": ["Local Push", "Cloud Push", "Cloud Polling"]
 }

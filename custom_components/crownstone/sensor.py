@@ -1,25 +1,33 @@
 """Support for presence detection of Crownstone."""
-import logging
+from functools import partial
 from typing import Any, Dict, Optional
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ENTITY_ID
+from homeassistant.const import CONF_ENTITY_ID, DEVICE_CLASS_ENERGY, POWER_WATT
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import async_get_registry as get_device_reg
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_registry import async_get_registry as get_entity_reg
 
 from .const import (
     CONF_USER,
+    CROWNSTONE_EXCLUDE,
     DOMAIN,
     EVENT_USER_ENTERED,
     EVENT_USER_LEFT,
     PRESENCE_LOCATION,
     PRESENCE_SPHERE,
-    SIG_STATE_UPDATE,
+    SIG_ADD_CROWNSTONE_DEVICES,
+    SIG_ADD_PRESENCE_DEVICES,
+    SIG_POWER_STATE_UPDATE,
+    SIG_POWER_UPDATE,
+    SIG_PRESENCE_STATE_UPDATE,
+    SIG_PRESENCE_UPDATE,
     SIG_TRIGGER_EVENT,
+    SIG_UART_READY,
 )
-
-_LOGGER = logging.getLogger(__name__)
+from .devices import CrownstoneDevice, PresenceDevice
 
 
 async def async_setup_entry(
@@ -28,7 +36,7 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     crownstone_hub = hass.data[DOMAIN][entry.entry_id]
 
-    # add sphere presence entity
+    # add sphere presence entity (will only ever be 1 of these)
     entities = [
         Presence(
             crownstone_hub,
@@ -48,18 +56,148 @@ async def async_setup_entry(
             )
         )
 
-    async_add_entities(entities, True)
+    # add power usage entities to crownstones
+    for crownstone in crownstone_hub.sphere.crownstones:
+        # some don't support power usage features
+        if crownstone.type not in CROWNSTONE_EXCLUDE:
+            entities.append(
+                PowerUsage(crownstone, crownstone_hub.uart_manager.uart_instance)
+            )
+
+    # subscribe to Crownstone add signals
+    async_dispatcher_connect(
+        hass,
+        SIG_ADD_CROWNSTONE_DEVICES,
+        partial(add_power_usage_entities, async_add_entities, crownstone_hub),
+    )
+
+    # subscribe to Location device add signals
+    async_dispatcher_connect(
+        hass,
+        SIG_ADD_PRESENCE_DEVICES,
+        partial(add_presence_entities, async_add_entities, crownstone_hub),
+    )
+
+    async_add_entities(entities)
 
 
-class Presence(Entity):
+@callback
+def add_power_usage_entities(async_add_entities, crownstone_hub, crownstones):
+    """Add a new Crownstone devices to HA."""
+    entities = []
+
+    for crownstone in crownstones:
+        entities.append(
+            PowerUsage(crownstone, crownstone_hub.uart_manager.uart_instance)
+        )
+
+    async_add_entities(entities)
+
+
+@callback
+def add_presence_entities(async_add_entities, crownstone_hub, locations):
+    """Add a new Presence devices to HA."""
+    entities = []
+
+    for location in locations:
+        entities.append(
+            Presence(
+                crownstone_hub,
+                location,
+                PRESENCE_LOCATION["description"],
+                PRESENCE_LOCATION["icon"],
+            )
+        )
+
+    async_add_entities(entities)
+
+
+class PowerUsage(CrownstoneDevice, Entity):
+    """
+    Representation of a Power Usage Sensor.
+
+    The state of this sensor is updated using local push events from the Crownstone USB.
+    """
+
+    def __init__(self, crownstone, uart):
+        """Initialize the power usage entity."""
+        super().__init__(crownstone)
+        self.uart = uart
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return f"{self.crownstone.name} Power Usage"
+
+    @property
+    def state(self) -> int:
+        """Return the current value of the sensor."""
+        return self.crownstone.power_usage
+
+    @property
+    def device_class(self) -> Optional[str]:
+        """Return the class of the sensor."""
+        return DEVICE_CLASS_ENERGY
+
+    @property
+    def unit_of_measurement(self) -> Optional[str]:
+        """Return the unit of measurement of the sensor."""
+        return POWER_WATT
+
+    @property
+    def icon(self) -> Optional[str]:
+        """Return the icon for the sensor."""
+        return "mdi:lightning-bolt"
+
+    @property
+    def available(self) -> bool:
+        """Return whether the sensor is available or not."""
+        return self.uart.is_ready()
+
+    async def async_added_to_hass(self) -> None:
+        """Set up a listener when this entity is added to HA."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIG_POWER_STATE_UPDATE, self.async_update_ha_state
+            )
+        )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIG_POWER_UPDATE, self.async_update_entity
+            )
+        )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIG_UART_READY, self.async_update_ha_state
+            )
+        )
+
+    @callback
+    async def async_update_entity(self, crownstone_id: str) -> None:
+        """Update the entity information after data was updated."""
+        if crownstone_id == self.cloud_id:
+            entity_reg = await get_entity_reg(self.hass)
+
+            # get entity
+            entity = entity_reg.async_get(self.entity_id)
+            if entity is not None:
+                # check for update
+                if not entity.name == self.name:
+                    entity_reg.async_update_entity(self.entity_id, name=self.name)
+
+        await self.async_update_ha_state()
+
+
+class Presence(PresenceDevice, Entity):
     """
     Representation of a Presence Sensor.
 
-    The state for this sensor is updated using the Crownstone SSE client running in the background.
+    The state of this sensor is updated using the Crownstone SSE client running in the background.
     """
 
     def __init__(self, hub, presence_holder, description, icon):
         """Initialize the presence detector."""
+        super().__init__(presence_holder, description)
         self.hub = hub
         self.presence_holder = presence_holder
         self.description = description
@@ -75,16 +213,6 @@ class Presence(Entity):
     def icon(self) -> Optional[str]:
         """Return the icon."""
         return self._icon
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID."""
-        return self.presence_holder.unique_id
-
-    @property
-    def cloud_id(self) -> str:
-        """Return the cloud id of this presence holder."""
-        return self.presence_holder.cloud_id
 
     @property
     def state(self) -> str:
@@ -122,21 +250,16 @@ class Presence(Entity):
         """Return if the presence sensor is available."""
         return self.hub.sse.is_available
 
-    @property
-    def device_info(self) -> Dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": f"{self.name} presence",
-            "manufacturer": "Crownstone",
-            "model": self.description,
-        }
-
     async def async_added_to_hass(self) -> None:
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_STATE_UPDATE, self.async_write_ha_state
+                self.hass, SIG_PRESENCE_STATE_UPDATE, self.async_update_ha_state
+            )
+        )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIG_PRESENCE_UPDATE, self.async_update_entity_and_device
             )
         )
         self.async_on_remove(
@@ -166,3 +289,36 @@ class Presence(Entity):
         else:
             # state is unchanged, don't fire an event.
             return
+
+    @callback
+    async def async_update_entity_and_device(self, location_id: str) -> None:
+        """
+        Update the entity and device information after data was updated.
+
+        Entity & device name for Locations should be the same.
+        """
+        if location_id == self.cloud_id:
+            device_reg = await get_device_reg(self.hass)
+            entity_reg = await get_entity_reg(self.hass)
+
+            # get device
+            device = device_reg.async_get_device(
+                identifiers={(DOMAIN, self.unique_id)}, connections=set()
+            )
+            if device is not None:
+                # check if update is necessary
+                if not device.name == f"{self.name} presence":
+                    device_reg.async_update_device(
+                        device.id,
+                        name=f"{self.name} presence",
+                        name_by_user=f"{self.name} presence",
+                    )
+
+            # get entity
+            entity = entity_reg.async_get(self.entity_id)
+            if entity is not None:
+                # check if update is necessary
+                if not entity.name == self.name:
+                    entity_reg.async_update_entity(self.entity_id, name=self.name)
+
+        await self.async_update_ha_state()

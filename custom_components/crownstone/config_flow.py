@@ -44,12 +44,12 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self.cloud = CrownstoneCloud(
             email=user_input[CONF_EMAIL],
             password=user_input[CONF_PASSWORD],
-            websession=aiohttp_client.async_get_clientsession(self.hass),
+            clientsession=aiohttp_client.async_get_clientsession(self.hass),
         )
 
         # handle login errors on setup form
         try:
-            await self.cloud.async_login()
+            await self.cloud.async_initialize()
             # save email and password for later use
             self.login_info = user_input
             # start next flow
@@ -75,19 +75,16 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_sphere(self, user_input=None):
         """Handle the step for selecting a sphere."""
-        # get the spheres for the user
-        await self.cloud.spheres.async_update_sphere_data()
-
         # only 1 sphere configured, don't show form and set this as sphere
-        if len(self.cloud.spheres.spheres) == 1:
+        if len(self.cloud.cloud_data.spheres) == 1:
             user_input = {
-                CONF_SPHERE: next(iter(self.cloud.spheres.spheres.values())).name
+                CONF_SPHERE: next(iter(self.cloud.cloud_data.spheres.values())).name
             }
 
         # show form with drop down menu
         if user_input is None:
             # generate sphere list
-            for sphere in self.cloud.spheres:
+            for sphere in self.cloud.cloud_data:
                 self.spheres.append(sphere.name)
 
             return self.async_show_form(
@@ -99,9 +96,6 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(user_input[CONF_SPHERE])
         # make sure this sphere is only set up once
         self._abort_if_unique_id_configured()
-
-        # cleanup RequestHandler
-        self.cloud.reset()
 
         # return data to main
         return self.async_create_entry(
