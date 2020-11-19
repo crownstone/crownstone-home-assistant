@@ -151,5 +151,6 @@ If you like to contribute test results of tests that have not been done by us ye
 - [x] Dynamically update data & add/remove Crownstone and Location devices without restarting or reloading
 - [ ] Create device conditions for Presence devices
 - [ ] Optimize power usage accuracy by implementing new UART protocol
+- [ ] Add energy usage entities to Crownstone devices
 
 Any ideas for future updates? Let us [know](mailto:ask@crownstone.rocks?subject=[GitHub]%20Crownstone%20Home%20Assistant%20Integration)!
