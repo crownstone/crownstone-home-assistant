@@ -1,8 +1,8 @@
 # Test rapport for Crownstone Home Assistant integration
 
-| Home Assistant version | Integration version | Tested by                   | 
-| ---------------------- | ------------------- | ---------------------------
-| 0.118.0                | 1.5.0               | Ricardo Steijn (@RicArch97)
+| Home Assistant version | Integration version | Tested by                   | Crownstone types used for testing        |
+| ---------------------- | ------------------- | --------------------------- | -----------------------------------------|
+| 0.118.0                | 1.5.0               | Ricardo Steijn (@RicArch97) | Crownstone Built-in One, Crownstone Plug
 
 The goal of this rapport is to get a good view of which parts of the Home Assistant integration have been tested.
 
