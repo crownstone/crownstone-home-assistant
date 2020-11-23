@@ -104,28 +104,22 @@ async def async_get_triggers(hass: HomeAssistant, device_id: str) -> List[dict]:
     registry = await entity_registry.async_get_registry(hass)
     triggers = []
 
-    # Get all the integrations entities for all sensor devices from Crownstone and add triggers
+    # loop through all entities for device
     for entry in entity_registry.async_entries_for_device(registry, device_id):
-        # Sensor entities
-        if entry.domain == SENSOR_PLATFORM:
-            if entry.device_class == DEVICE_CLASS_ENERGY:
-                # Devices that have a power usage sensor.
-                # these will use the default device triggers from sensor.
-                continue
+        # make sure to only add custom triggers to presence sensor entities
+        if entry.domain != SENSOR_PLATFORM or entry.device_class == DEVICE_CLASS_ENERGY:
+            continue
 
-            else:
-                # Devices with Crownstone presence sensor.
-                # These are sensors without a device class.
-                for trigger in TRIGGER_TYPES:
-                    triggers.append(
-                        {
-                            CONF_PLATFORM: CONF_DEVICE,
-                            CONF_DEVICE_ID: device_id,
-                            CONF_DOMAIN: DOMAIN,
-                            CONF_ENTITY_ID: entry.entity_id,
-                            CONF_TYPE: trigger,
-                        }
-                    )
+        for trigger in TRIGGER_TYPES:
+            triggers.append(
+                {
+                    CONF_PLATFORM: CONF_DEVICE,
+                    CONF_DEVICE_ID: device_id,
+                    CONF_DOMAIN: DOMAIN,
+                    CONF_ENTITY_ID: entry.entity_id,
+                    CONF_TYPE: trigger,
+                }
+            )
 
     return triggers
 

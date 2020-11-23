@@ -1,4 +1,4 @@
-"""Base class for a Crownstone device."""
+"""Base classes for Crownstone devices."""
 from typing import Any, Dict, Optional
 
 from .const import CROWNSTONE_TYPES, DOMAIN
@@ -12,11 +12,6 @@ class CrownstoneDevice:
         self.crownstone = crownstone
 
     @property
-    def unique_id(self) -> str:
-        """Return the unique ID."""
-        return self.crownstone.unique_id
-
-    @property
     def cloud_id(self) -> str:
         """Return the cloud id of this crownstone."""
         return self.crownstone.cloud_id
@@ -25,17 +20,12 @@ class CrownstoneDevice:
     def device_info(self) -> Optional[Dict[str, Any]]:
         """Return device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
+            "identifiers": {(DOMAIN, self.crownstone.unique_id)},
             "name": self.crownstone.name,
             "manufacturer": "Crownstone",
             "model": CROWNSTONE_TYPES[self.crownstone.type],
             "sw_version": self.crownstone.sw_version,
         }
-
-    @property
-    def should_poll(self) -> bool:
-        """No polling required."""
-        return False
 
 
 class PresenceDevice:
@@ -47,11 +37,6 @@ class PresenceDevice:
         self.description = description
 
     @property
-    def unique_id(self) -> str:
-        """Return the unique ID."""
-        return self.location.unique_id
-
-    @property
     def cloud_id(self) -> str:
         """Return the cloud id of this presence holder."""
         return self.location.cloud_id
@@ -60,13 +45,8 @@ class PresenceDevice:
     def device_info(self) -> Dict[str, Any]:
         """Return device information."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
+            "identifiers": {(DOMAIN, self.location.unique_id)},
             "name": f"{self.location.name} presence",
             "manufacturer": "Crownstone",
             "model": self.description,
         }
-
-    @property
-    def should_poll(self) -> bool:
-        """No polling required."""
-        return False

@@ -9,6 +9,7 @@ from homeassistant.helpers.device_registry import async_get_registry as get_devi
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_registry import async_get_registry as get_entity_reg
+from homeassistant.util import ensure_unique_string
 
 from .const import (
     CONF_USER,
@@ -16,7 +17,9 @@ from .const import (
     DOMAIN,
     EVENT_USER_ENTERED,
     EVENT_USER_LEFT,
+    POWER_USAGE_PREFIX,
     PRESENCE_LOCATION,
+    PRESENCE_PREFIX,
     PRESENCE_SPHERE,
     SIG_ADD_CROWNSTONE_DEVICES,
     SIG_ADD_PRESENCE_DEVICES,
@@ -28,6 +31,7 @@ from .const import (
     SIG_UART_READY,
 )
 from .devices import CrownstoneDevice, PresenceDevice
+from .helpers import async_get_unique_ids
 
 
 async def async_setup_entry(
@@ -36,19 +40,31 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     crownstone_hub = hass.data[DOMAIN][entry.entry_id]
 
+    unique_presence_ids = []
+    unique_power_usage_ids = []
+
     # add sphere presence entity (will only ever be 1 of these)
+    unique_sphere_id = ensure_unique_string(PRESENCE_PREFIX, unique_presence_ids)
     entities = [
         Presence(
+            unique_sphere_id,
             crownstone_hub,
             crownstone_hub.sphere,
             PRESENCE_SPHERE["description"],
             PRESENCE_SPHERE["icon"],
         )
     ]
+    unique_presence_ids.append(unique_sphere_id)
+
     # add location presence entities
     for location in crownstone_hub.sphere.locations:
+        # create a unique ID
+        unique_location_id = ensure_unique_string(PRESENCE_PREFIX, unique_presence_ids)
+        unique_presence_ids.append(unique_location_id)
+
         entities.append(
             Presence(
+                unique_location_id,
                 crownstone_hub,
                 location,
                 PRESENCE_LOCATION["description"],
@@ -60,8 +76,18 @@ async def async_setup_entry(
     for crownstone in crownstone_hub.sphere.crownstones:
         # some don't support power usage features
         if crownstone.type not in CROWNSTONE_EXCLUDE:
+            # create a unique ID
+            unique_power_id = ensure_unique_string(
+                POWER_USAGE_PREFIX, unique_power_usage_ids
+            )
+            unique_power_usage_ids.append(unique_power_id)
+
             entities.append(
-                PowerUsage(crownstone, crownstone_hub.uart_manager.uart_instance)
+                PowerUsage(
+                    unique_power_id,
+                    crownstone,
+                    crownstone_hub.uart_manager.uart_instance,
+                )
             )
 
     # subscribe to Crownstone add signals
@@ -82,26 +108,43 @@ async def async_setup_entry(
 
 
 @callback
-def add_power_usage_entities(async_add_entities, crownstone_hub, crownstones):
+async def add_power_usage_entities(async_add_entities, crownstone_hub, crownstones):
     """Add a new Crownstone devices to HA."""
     entities = []
+    # get list of existing unique ids for entities in config entry
+    unique_ids = await async_get_unique_ids(
+        crownstone_hub.hass, crownstone_hub.config_entry
+    )
 
     for crownstone in crownstones:
+        # create a unique ID
+        unique_id = ensure_unique_string(POWER_USAGE_PREFIX, unique_ids)
+        unique_ids.append(unique_id)
+
         entities.append(
-            PowerUsage(crownstone, crownstone_hub.uart_manager.uart_instance)
+            PowerUsage(unique_id, crownstone, crownstone_hub.uart_manager.uart_instance)
         )
 
     async_add_entities(entities)
 
 
 @callback
-def add_presence_entities(async_add_entities, crownstone_hub, locations):
+async def add_presence_entities(async_add_entities, crownstone_hub, locations):
     """Add a new Presence devices to HA."""
     entities = []
+    # get list of existing unique ids for entities in config entry
+    unique_ids = await async_get_unique_ids(
+        crownstone_hub.hass, crownstone_hub.config_entry
+    )
 
     for location in locations:
+        # create a unique ID
+        unique_id = ensure_unique_string(PRESENCE_PREFIX, unique_ids)
+        unique_ids.append(unique_id)
+
         entities.append(
             Presence(
+                unique_id,
                 crownstone_hub,
                 location,
                 PRESENCE_LOCATION["description"],
@@ -119,15 +162,21 @@ class PowerUsage(CrownstoneDevice, Entity):
     The state of this sensor is updated using local push events from the Crownstone USB.
     """
 
-    def __init__(self, crownstone, uart):
+    def __init__(self, unique_id, crownstone, uart):
         """Initialize the power usage entity."""
         super().__init__(crownstone)
         self.uart = uart
+        self._unique_id = unique_id
 
     @property
     def name(self):
         """Return the name of the sensor."""
         return f"{self.crownstone.name} Power Usage"
+
+    @property
+    def unique_id(self) -> Optional[str]:
+        """Return the unique id for this entity."""
+        return self._unique_id
 
     @property
     def state(self) -> int:
@@ -158,7 +207,7 @@ class PowerUsage(CrownstoneDevice, Entity):
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_POWER_STATE_UPDATE, self.async_update_ha_state
+                self.hass, SIG_POWER_STATE_UPDATE, self.async_write_ha_state
             )
         )
         self.async_on_remove(
@@ -168,7 +217,7 @@ class PowerUsage(CrownstoneDevice, Entity):
         )
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_UART_READY, self.async_update_ha_state
+                self.hass, SIG_UART_READY, self.async_write_ha_state
             )
         )
 
@@ -185,7 +234,7 @@ class PowerUsage(CrownstoneDevice, Entity):
                 if not entity.name == self.name:
                     entity_reg.async_update_entity(self.entity_id, name=self.name)
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
 
 class Presence(PresenceDevice, Entity):
@@ -195,10 +244,11 @@ class Presence(PresenceDevice, Entity):
     The state of this sensor is updated using the Crownstone SSE client running in the background.
     """
 
-    def __init__(self, hub, presence_holder, description, icon):
+    def __init__(self, unique_id, hub, presence_holder, description, icon):
         """Initialize the presence detector."""
         super().__init__(presence_holder, description)
         self.hub = hub
+        self._unique_id = unique_id
         self.presence_holder = presence_holder
         self.description = description
         self.last_state = []
@@ -208,6 +258,11 @@ class Presence(PresenceDevice, Entity):
     def name(self) -> str:
         """Return the name of this presence holder."""
         return self.presence_holder.name
+
+    @property
+    def unique_id(self) -> Optional[str]:
+        """Return the unique id for this entity."""
+        return self._unique_id
 
     @property
     def icon(self) -> Optional[str]:
@@ -254,7 +309,7 @@ class Presence(PresenceDevice, Entity):
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_PRESENCE_STATE_UPDATE, self.async_update_ha_state
+                self.hass, SIG_PRESENCE_STATE_UPDATE, self.async_write_ha_state
             )
         )
         self.async_on_remove(
@@ -303,7 +358,8 @@ class Presence(PresenceDevice, Entity):
 
             # get device
             device = device_reg.async_get_device(
-                identifiers={(DOMAIN, self.unique_id)}, connections=set()
+                identifiers={(DOMAIN, self.presence_holder.unique_id)},
+                connections=set(),
             )
             if device is not None:
                 # check if update is necessary
@@ -321,4 +377,4 @@ class Presence(PresenceDevice, Entity):
                 if not entity.name == self.name:
                     entity_reg.async_update_entity(self.entity_id, name=self.name)
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()

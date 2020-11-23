@@ -21,11 +21,13 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_get_registry as get_device_reg
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_registry import async_get_registry as get_entity_reg
+from homeassistant.util import ensure_unique_string
 
 from .const import (
     ABILITY,
     ABILITY_STATE,
     CROWNSTONE_EXCLUDE,
+    CROWNSTONE_PREFIX,
     DOMAIN,
     SIG_ADD_CROWNSTONE_DEVICES,
     SIG_CROWNSTONE_STATE_UPDATE,
@@ -33,6 +35,7 @@ from .const import (
     SIG_UART_READY,
 )
 from .devices import CrownstoneDevice
+from .helpers import async_get_unique_ids
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,11 +45,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     crownstone_hub = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
+    unique_ids = []
+
     for crownstone in crownstone_hub.sphere.crownstones:
         # some don't support light features
         if crownstone.type not in CROWNSTONE_EXCLUDE:
+            # create a unique ID
+            unique_id = ensure_unique_string(CROWNSTONE_PREFIX, unique_ids)
+            unique_ids.append(unique_id)
+
             entities.append(
-                Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
+                Crownstone(
+                    unique_id, crownstone, crownstone_hub.uart_manager.uart_instance
+                )
             )
 
     # subscribe to Crownstone add signals
@@ -60,9 +71,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 @callback
-def add_crownstone_entities(async_add_entities, crownstone_hub, crownstones):
+async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstones):
     """Add a new Crownstone device to HA."""
     entities = []
+    # get list of existing unique ids for entities in config entry
+    unique_ids = await async_get_unique_ids(
+        crownstone_hub.hass, crownstone_hub.config_entry
+    )
 
     for crownstone in crownstones:
         # adding a Crownstone is done in 2 steps
@@ -75,8 +90,12 @@ def add_crownstone_entities(async_add_entities, crownstone_hub, crownstones):
         crownstone.data["currentSwitchState"] = {}
         crownstone.data["currentSwitchState"]["switchState"] = 100
 
+        # create a unique ID
+        unique_id = ensure_unique_string(CROWNSTONE_PREFIX, unique_ids)
+        unique_ids.append(unique_id)
+
         entities.append(
-            Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
+            Crownstone(unique_id, crownstone, crownstone_hub.uart_manager.uart_instance)
         )
 
     async_add_entities(entities)
@@ -99,15 +118,21 @@ class Crownstone(CrownstoneDevice, LightEntity):
     Light platform is used to support dimming.
     """
 
-    def __init__(self, crownstone, uart):
+    def __init__(self, unique_id, crownstone, uart):
         """Initialize the crownstone."""
         super().__init__(crownstone)
         self.uart = uart
+        self._unique_id = unique_id
 
     @property
     def name(self) -> str:
         """Return the name of this presence holder."""
         return self.crownstone.name
+
+    @property
+    def unique_id(self) -> Optional[str]:
+        """Return the unique id of this entity."""
+        return self._unique_id
 
     @property
     def icon(self) -> Optional[str]:
@@ -135,7 +160,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_CROWNSTONE_STATE_UPDATE, self.async_update_ha_state
+                self.hass, SIG_CROWNSTONE_STATE_UPDATE, self.async_write_ha_state
             )
         )
         self.async_on_remove(
@@ -145,7 +170,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
         )
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_UART_READY, self.async_update_ha_state
+                self.hass, SIG_UART_READY, self.async_write_ha_state
             )
         )
 
@@ -185,7 +210,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
 
             # get device
             device = device_reg.async_get_device(
-                identifiers={(DOMAIN, self.unique_id)}, connections=set()
+                identifiers={(DOMAIN, self.crownstone.unique_id)}, connections=set()
             )
             if device is not None:
                 # check if update is necessary
@@ -205,7 +230,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
                 if not entity.name == self.name:
                     entity_reg.async_update_entity(self.entity_id, name=self.name)
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on this light via dongle or cloud."""
@@ -213,7 +238,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
             try:
                 if self.uart.is_ready():
                     self.uart.dim_crownstone(
-                        self.unique_id,
+                        self.crownstone.unique_id,
                         # UART is still 0..1 until new release
                         (hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]) / 100),
                     )
@@ -225,29 +250,29 @@ class Crownstone(CrownstoneDevice, LightEntity):
                 self.crownstone.state = hass_to_crownstone_state(
                     kwargs[ATTR_BRIGHTNESS]
                 )
-                await self.async_update_ha_state()
+                self.async_write_ha_state()
             except CrownstoneAbilityError as ability_error:
                 _LOGGER.error(ability_error)
         elif self.uart.is_ready():
-            self.uart.switch_crownstone(self.unique_id, on=True)
+            self.uart.switch_crownstone(self.crownstone.unique_id, on=True)
             # set state (in case the updates never comes in)
             self.crownstone.state = 100
-            await self.async_update_ha_state()
+            self.async_write_ha_state()
         else:
             await self.crownstone.async_turn_on()
             # set state (in case the updates never comes in)
             self.crownstone.state = 100
-            await self.async_update_ha_state()
+            self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off this device via dongle or cloud."""
         if self.uart.is_ready():
             # switch using crownstone usb dongle
-            self.uart.switch_crownstone(self.unique_id, on=False)
+            self.uart.switch_crownstone(self.crownstone.unique_id, on=False)
         else:
             # switch remotely using the cloud
             await self.crownstone.async_turn_off()
 
         # set state (in case the updates never comes in)
         self.crownstone.state = 0
-        await self.async_update_ha_state()
+        self.async_write_ha_state()

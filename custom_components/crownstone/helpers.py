@@ -6,7 +6,7 @@ from crownstone_uart import CrownstoneUart
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import async_get_registry
+from homeassistant.helpers import device_registry, entity_registry
 
 from .const import ADDED_ITEMS, DOMAIN, REMOVED_ITEMS
 
@@ -69,7 +69,7 @@ async def async_remove_devices(
     hass: HomeAssistant, entry: ConfigEntry, devices: list
 ) -> None:
     """Remove devices from HA when they were removed from the Crownstone cloud."""
-    device_reg = await async_get_registry(hass)
+    device_reg = await device_registry.async_get_registry(hass)
 
     for device in devices:
         # remove the device from HA.
@@ -81,3 +81,20 @@ async def async_remove_devices(
             device_reg.async_update_device(
                 device.id, remove_config_entry_id=entry.entry_id
             )
+
+
+async def async_get_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> list:
+    """Get list of existing unique id's of entities in config entry."""
+    entity_reg = await entity_registry.async_get_registry(hass)
+
+    # get entities for config entry
+    entities = entity_registry.async_entries_for_config_entry(
+        entity_reg, entry.entry_id
+    )
+
+    # get the unique ids
+    existing_unique_ids = list()
+    for entity in entities:
+        existing_unique_ids.append(entity.unique_id)
+
+    return existing_unique_ids

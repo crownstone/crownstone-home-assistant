@@ -2,6 +2,7 @@
   "title": "Crownstone",
   "config": {
     "abort": {
+      "single_instance_allowed": "There can be only 1 Sphere in a house.",
       "already_configured": "This Sphere is already configured."
     },
     "error": {
