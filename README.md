@@ -21,6 +21,8 @@ The supreme versatility and user friendliness of the Crownstones is reflected in
 
 This integration stays in one line with the Crownstone app. When data is updated, Crownstones added/deleted or Locations added/deleted, the changes are **instantly** made in Home Assistant as well, thanks to our amazing Server Send Event service!
 
+![Crownstone integration dashboard example](/images/dashboard.png)
+
 # Installation
 
 ## HACS
@@ -154,3 +156,5 @@ If you like to contribute test results of tests that have not been done by us ye
 - [ ] Add energy usage entities to Crownstone devices
 
 Any ideas for future updates? Let us [know](mailto:ask@crownstone.rocks?subject=[GitHub]%20Crownstone%20Home%20Assistant%20Integration)!
+
+![Crownstones with HA Pi](/images/crownstone_with_pi.jpg)
