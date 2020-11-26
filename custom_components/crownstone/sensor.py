@@ -203,6 +203,11 @@ class PowerUsage(CrownstoneDevice, Entity):
         """Return whether the sensor is available or not."""
         return self.uart.is_ready()
 
+    @property
+    def should_poll(self) -> bool:
+        """Return if new states have to be polled."""
+        return False
+
     async def async_added_to_hass(self) -> None:
         """Set up a listener when this entity is added to HA."""
         self.async_on_remove(
@@ -227,12 +232,9 @@ class PowerUsage(CrownstoneDevice, Entity):
         if crownstone_id == self.cloud_id:
             entity_reg = await get_entity_reg(self.hass)
 
-            # get entity
-            entity = entity_reg.async_get(self.entity_id)
-            if entity is not None:
-                # check for update
-                if not entity.name == self.name:
-                    entity_reg.async_update_entity(self.entity_id, name=self.name)
+            # check if entity update is necessary
+            if not self.registry_entry.name == self.name:
+                entity_reg.async_update_entity(self.entity_id, name=self.name)
 
         self.async_write_ha_state()
 
@@ -299,6 +301,11 @@ class Presence(PresenceDevice, Entity):
             user = self.hub.sphere.users.find_by_id(user_id)
             attributes[user.first_name] = (user.last_name, user.role)
         return attributes
+
+    @property
+    def should_poll(self) -> bool:
+        """Return if a new state has to be polled."""
+        return False
 
     @property
     def available(self) -> bool:
@@ -370,11 +377,8 @@ class Presence(PresenceDevice, Entity):
                         name_by_user=f"{self.name} presence",
                     )
 
-            # get entity
-            entity = entity_reg.async_get(self.entity_id)
-            if entity is not None:
-                # check if update is necessary
-                if not entity.name == self.name:
-                    entity_reg.async_update_entity(self.entity_id, name=self.name)
+            # check if update is necessary
+            if not self.registry_entry.name == self.name:
+                entity_reg.async_update_entity(self.entity_id, name=self.name)
 
         self.async_write_ha_state()

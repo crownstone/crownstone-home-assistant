@@ -83,12 +83,12 @@ async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstone
         # adding a Crownstone is done in 2 steps
         # abilities are initialized on false, just like in the cloud
         # switchstate is initialized on 100, just like in the cloud
-        crownstone.abilities = {}
-        crownstone.abilities[DIMMING_ABILITY] = CrownstoneAbility(ABILITY)
-        crownstone.abilities[TAP_TO_TOGGLE_ABILITY] = CrownstoneAbility(ABILITY)
-        crownstone.abilities[SWITCHCRAFT_ABILITY] = CrownstoneAbility(ABILITY)
-        crownstone.data["currentSwitchState"] = {}
-        crownstone.data["currentSwitchState"]["switchState"] = 100
+        crownstone.abilities = {
+            DIMMING_ABILITY: CrownstoneAbility(ABILITY),
+            TAP_TO_TOGGLE_ABILITY: CrownstoneAbility(ABILITY),
+            SWITCHCRAFT_ABILITY: CrownstoneAbility(ABILITY),
+        }
+        crownstone.data["currentSwitchState"] = {"switchState": 100}
 
         # create a unique ID
         unique_id = ensure_unique_string(CROWNSTONE_PREFIX, unique_ids)
@@ -155,6 +155,11 @@ class Crownstone(CrownstoneDevice, LightEntity):
         if self.crownstone.abilities.get(DIMMING_ABILITY).is_enabled:
             return SUPPORT_BRIGHTNESS
         return 0
+
+    @property
+    def should_poll(self) -> bool:
+        """Return if polling is required after switching."""
+        return False
 
     async def async_added_to_hass(self) -> None:
         """Set up a listener when this entity is added to HA."""
@@ -223,12 +228,9 @@ class Crownstone(CrownstoneDevice, LightEntity):
                         device.id, sw_version=self.crownstone.sw_version
                     )
 
-            # get entity
-            entity = entity_reg.async_get(self.entity_id)
-            if entity is not None:
-                # check if update is necessary
-                if not entity.name == self.name:
-                    entity_reg.async_update_entity(self.entity_id, name=self.name)
+            # check if entity update is necessary
+            if not self.registry_entry.name == self.name:
+                entity_reg.async_update_entity(self.entity_id, name=self.name)
 
         self.async_write_ha_state()
 
