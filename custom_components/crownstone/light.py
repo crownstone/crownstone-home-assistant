@@ -21,13 +21,12 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_get_registry as get_device_reg
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_registry import async_get_registry as get_entity_reg
-from homeassistant.util import ensure_unique_string
 
 from .const import (
     ABILITY,
     ABILITY_STATE,
     CROWNSTONE_EXCLUDE,
-    CROWNSTONE_PREFIX,
+    CROWNSTONE_SUFFIX,
     DOMAIN,
     SIG_ADD_CROWNSTONE_DEVICES,
     SIG_CROWNSTONE_STATE_UPDATE,
@@ -35,7 +34,6 @@ from .const import (
     SIG_UART_READY,
 )
 from .devices import CrownstoneDevice
-from .helpers import async_get_unique_ids
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,19 +43,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     crownstone_hub = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
-    unique_ids = []
 
     for crownstone in crownstone_hub.sphere.crownstones:
         # some don't support light features
         if crownstone.type not in CROWNSTONE_EXCLUDE:
-            # create a unique ID
-            unique_id = ensure_unique_string(CROWNSTONE_PREFIX, unique_ids)
-            unique_ids.append(unique_id)
-
             entities.append(
-                Crownstone(
-                    unique_id, crownstone, crownstone_hub.uart_manager.uart_instance
-                )
+                Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
             )
 
     # subscribe to Crownstone add signals
@@ -74,15 +65,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstones):
     """Add a new Crownstone device to HA."""
     entities = []
-    # get list of existing unique ids for entities in config entry
-    unique_ids = await async_get_unique_ids(
-        crownstone_hub.hass, crownstone_hub.config_entry
-    )
 
     for crownstone in crownstones:
         # adding a Crownstone is done in 2 steps
-        # abilities are initialized on false, just like in the cloud
-        # switchstate is initialized on 100, just like in the cloud
+        # these parameters have to be added for initialization
         crownstone.abilities = {
             DIMMING_ABILITY: CrownstoneAbility(ABILITY),
             TAP_TO_TOGGLE_ABILITY: CrownstoneAbility(ABILITY),
@@ -90,12 +76,8 @@ async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstone
         }
         crownstone.data["currentSwitchState"] = {"switchState": 100}
 
-        # create a unique ID
-        unique_id = ensure_unique_string(CROWNSTONE_PREFIX, unique_ids)
-        unique_ids.append(unique_id)
-
         entities.append(
-            Crownstone(unique_id, crownstone, crownstone_hub.uart_manager.uart_instance)
+            Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
         )
 
     async_add_entities(entities)
@@ -118,11 +100,10 @@ class Crownstone(CrownstoneDevice, LightEntity):
     Light platform is used to support dimming.
     """
 
-    def __init__(self, unique_id, crownstone, uart):
+    def __init__(self, crownstone, uart):
         """Initialize the crownstone."""
         super().__init__(crownstone)
         self.uart = uart
-        self._unique_id = unique_id
 
     @property
     def name(self) -> str:
@@ -132,7 +113,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
     @property
     def unique_id(self) -> Optional[str]:
         """Return the unique id of this entity."""
-        return self._unique_id
+        return f"{self.cloud_id}-{CROWNSTONE_SUFFIX}"
 
     @property
     def icon(self) -> Optional[str]:

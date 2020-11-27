@@ -5,10 +5,10 @@ DOMAIN = "crownstone"
 SENSOR_PLATFORM = "sensor"
 LIGHT_PLATFORM = "light"
 
-# Unique ID prefixes
-CROWNSTONE_PREFIX = "crownstone_crownstone"
-POWER_USAGE_PREFIX = "crownstone_power_usage"
-PRESENCE_PREFIX = "crownstone_presence"
+# Unique ID suffixes
+CROWNSTONE_SUFFIX = "crownstone"
+POWER_USAGE_SUFFIX = "power_usage"
+PRESENCE_SUFFIX = "presence"
 
 # Signals (within integration)
 SIG_PRESENCE_STATE_UPDATE = "crownstone.presence_state_update"
