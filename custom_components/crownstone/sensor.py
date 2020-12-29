@@ -325,7 +325,7 @@ class Presence(PresenceDevice, Entity):
 
             # get device
             device = device_reg.async_get_device(
-                identifiers={(DOMAIN, self.presence_holder.unique_id)},
+                identifiers={(DOMAIN, self.cloud_id)},
                 connections=set(),
             )
             if device is not None:

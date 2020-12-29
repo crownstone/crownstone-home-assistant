@@ -13,14 +13,18 @@ class CrownstoneDevice:
 
     @property
     def cloud_id(self) -> str:
-        """Return the cloud id of this crownstone."""
+        """
+        Return the unique identifier for this device.
+
+        Used as device ID and to generate unique entity ID's.
+        """
         return self.crownstone.cloud_id
 
     @property
     def device_info(self) -> Optional[Dict[str, Any]]:
         """Return device info."""
         return {
-            "identifiers": {(DOMAIN, self.crownstone.unique_id)},
+            "identifiers": {(DOMAIN, self.cloud_id)},
             "name": self.crownstone.name,
             "manufacturer": "Crownstone",
             "model": CROWNSTONE_TYPES[self.crownstone.type],
@@ -38,14 +42,18 @@ class PresenceDevice:
 
     @property
     def cloud_id(self) -> str:
-        """Return the cloud id of this presence holder."""
+        """
+        Return the unique identifier for this device.
+
+        Used as device ID and to generate unique entity ID's.
+        """
         return self.location.cloud_id
 
     @property
     def device_info(self) -> Dict[str, Any]:
         """Return device information."""
         return {
-            "identifiers": {(DOMAIN, self.location.unique_id)},
+            "identifiers": {(DOMAIN, self.cloud_id)},
             "name": f"{self.location.name} presence",
             "manufacturer": "Crownstone",
             "model": self.description,

@@ -6,7 +6,7 @@ SENSOR_PLATFORM = "sensor"
 LIGHT_PLATFORM = "light"
 
 # Unique ID suffixes
-CROWNSTONE_SUFFIX = "crownstone"
+CROWNSTONE_SUFFIX = "relay_and_dimmer"
 POWER_USAGE_SUFFIX = "power_usage"
 PRESENCE_SUFFIX = "presence"
 

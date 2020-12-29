@@ -196,7 +196,7 @@ class Crownstone(CrownstoneDevice, LightEntity):
 
             # get device
             device = device_reg.async_get_device(
-                identifiers={(DOMAIN, self.crownstone.unique_id)}, connections=set()
+                identifiers={(DOMAIN, self.cloud_id)}, connections=set()
             )
             if device is not None:
                 # check if update is necessary
