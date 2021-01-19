@@ -15,7 +15,7 @@ The supreme versatility and user friendliness of the Crownstones is reflected in
 * Extremely easy to set up
 * Instant updates for switch states and data
 * Dynamically adding and removing devices/entities
-* Real-time power usage measurements using the Crownstone USB
+* Real-time power and energy usage measurements using the Crownstone USB
 * Keeps track of **who** is in which room!
 * Custom advanced presence triggers to make your whole home react to your presence!
 
@@ -27,9 +27,11 @@ This integration stays in one line with the Crownstone app. When data is updated
 
 ## HACS
 
-Visit the [HACS installation page](https://hacs.xyz/docs/installation/manual) to set up HACS in your Home Assistant.
+Visit the [HACS installation page](https://hacs.xyz/docs/installation/installation) to install HACS, and the [HACS setup page](https://hacs.xyz/docs/configuration/basic) to enabled HACS in Home Assistant.
 
-Click the 3 dots button in the top right corner, and click custom repositories. Select category integration, and add the link of this repository. In the HACS store, click the "+" button in the bottom right corner, and search for Crownstone.
+In HACS, Click the 3 dots button in the top right corner, and click custom repositories. Select category integration, and add the link of this repository. 
+
+After adding the repository, in the HACS store, click the "+ explore & add repositories" button in the bottom right corner, and search for Crownstone. Then just follow the installation steps. Make sure to select the newest version!
 
 ## Manually
 
@@ -86,25 +88,35 @@ The events are registered, which means that if a user enters a room, but leaves 
 
 <img src="images/device_triggers.jpg" width="216" height="468" /> <img src="images/trigger_config.jpg" width="216" height="468" />
 
-# Power usage
+# Power usage & Energy usage
 
-Crownstone's live power usage streaming is also available in Home Assistant. Because of the constant updates, this functionality is only available when using the [Crownstone USB dongle](#crownstone-usb-dongle).
+Crownstone's live power usage streaming, and energy usage summation, are is also available in Home Assistant. Because of the constant updates, this functionality is only available when using the [Crownstone USB dongle](#crownstone-usb-dongle).
 
-The power usage for each Crownstone updates every minute, or instantly for a particular Crownstone when switching it. It can take some time before the correct power usage is displayed.
+The power usage and energy usage for each Crownstone update every minute, or instantly for a particular Crownstone when switching it.
 
-## Power usage device triggers
+## Energy usage features
+
+- Starts at 0 in Home Assistant after installing/updating the integration, independent of the value received by the Crownstone
+- Persistent states: after rebooting Home Assistant, the energy usage values remain
+- When a Crownstone is reset (updated or power loss), the values in Home Assistant will remain, and will be further updated
+- The values for energy usage are set back to 0 each month in Home Assistant. In the `History` tab, you will be able to see the maximum usage for each month
+
+## Power usage & Energy usage device triggers
 
 Power usage entities use the default device triggers from sensor for power usage sensors. The following triggers are available:
-- Crownstone Power usage energy changes
+- Crownstone Power Usage power changes
 
-For `Crownstone Power usage changes` there are 3 options:
+Energy usage entities also use the default device triggers from sensor for energy usage sensors. The following triggers are available:
+- Crownstone Energy Usage energy changes
+
+For `Crownstone Power Usage power changes` or `Crownstone Energy Usage energy changes` there are 3 options:
 - Above a certain value
 - Below a certain value
 - Duration of the change in hh/mm/ss
 
-You can have other devices react to peaks in power usage, send an event or notification, whatever you like!
+Example usage is to send a notification to your phone when the power usage is too high for a certain duration, or switch the device off when this happens. When energy usage reaches a certain value, you could activate a scene which turns multiple devices off.
 
-![Crownstone power usage](/images/power_usage.png)
+![Crownstone power usage](/images/power_energy_usage.png)
 
 # Comparison
 
@@ -121,7 +133,7 @@ Presence updates and data updates are always done using the Crownstone Cloud.
 - [ ] No delay when switching Crownstones
 - [ ] State updates in Home Assistant when using lightswitch with Switchcraft
 - [ ] Can switch Crownstones independently (no smartphone in proximity required)
-- [ ] Can use power usage entities
+- [ ] Can use power usage & energy usage entities
 
 ## Crownstone USB Dongle
 
@@ -132,7 +144,7 @@ Presence updates and data updates are always done using the Crownstone Cloud.
 - [x] No delay when switching Crownstones
 - [x] State updates in Home Assistant when using lightswitch with Switchcraft
 - [x] Can switch Crownstones independently (no smartphone in proximity required)
-- [x] Can use power usage entities
+- [x] Can use power usage & energy usage entities
 
 Get your Crownstone USB dongle [here](https://shop.crownstone.rocks/products/crownstone-usb-dongle) and enhance your Home Assistant experience!
 
@@ -151,9 +163,8 @@ If you like to contribute test results of tests that have not been done by us ye
 - [x] Add power usage entities to Crownstone devices
 - [x] Fix state updates coming from the Crownstone app not being done in Home Assistant
 - [x] Dynamically update data & add/remove Crownstone and Location devices without restarting or reloading
+- [x] Add energy usage entities to Crownstone devices
 - [ ] Create device conditions for Presence devices
-- [ ] Optimize power usage accuracy by implementing new UART protocol
-- [ ] Add energy usage entities to Crownstone devices
 
 Any ideas for future updates? Let us [know](mailto:ask@crownstone.rocks?subject=[GitHub]%20Crownstone%20Home%20Assistant%20Integration)!
 

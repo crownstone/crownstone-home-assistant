@@ -28,6 +28,7 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the flow."""
         self.cloud: Optional[CrownstoneCloud] = None
         self.login_info = None
+        self.sphere_input = None
         self.spheres = []
 
     async def async_step_user(self, user_input=None):
@@ -96,8 +97,17 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema({CONF_SPHERE: vol.In(self.spheres)}),
             )
 
+        self.sphere_input = user_input
+
+        return await self.async_step_usb()
+
+    async def async_step_usb(self, user_input=None):
+        """Ask a user to plug in a Crowsntone USB (if any)."""
+        if user_input is None:
+            return self.async_show_form(step_id="usb")
+
         # set the unique id
-        await self.async_set_unique_id(user_input[CONF_SPHERE])
+        await self.async_set_unique_id(self.sphere_input[CONF_SPHERE])
 
         # return data to main
         return self.async_create_entry(
@@ -106,6 +116,6 @@ class CrownstoneConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_ID: self.unique_id,
                 CONF_EMAIL: self.login_info[CONF_EMAIL],
                 CONF_PASSWORD: self.login_info[CONF_PASSWORD],
-                CONF_SPHERE: user_input[CONF_SPHERE],
+                CONF_SPHERE: self.sphere_input[CONF_SPHERE],
             },
         )

@@ -5,9 +5,11 @@
   "documentation": "https://www.home-assistant.io/integrations/crownstone",
   "requirements": [
     "crownstone-uart==1.0.0",
-    "crownstone-cloud==1.4.3",
+    "crownstone-cloud==1.4.4",
     "crownstone-sse==1.2.5",
-    "numpy==1.19.2"
+    "numpy==1.19.2",
+    "tzlocal==2.1",
+    "sigfig==1.1.8"
   ],
   "codeowners": [
     "@Crownstone",

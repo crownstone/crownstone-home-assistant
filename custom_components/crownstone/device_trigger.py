@@ -16,6 +16,7 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_TYPE,
     DEVICE_CLASS_ENERGY,
+    DEVICE_CLASS_POWER,
 )
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry
@@ -107,7 +108,11 @@ async def async_get_triggers(hass: HomeAssistant, device_id: str) -> List[dict]:
     # loop through all entities for device
     for entry in entity_registry.async_entries_for_device(registry, device_id):
         # make sure to only add custom triggers to presence sensor entities
-        if entry.domain != SENSOR_PLATFORM or entry.device_class == DEVICE_CLASS_ENERGY:
+        if (
+            entry.domain != SENSOR_PLATFORM
+            or entry.device_class == DEVICE_CLASS_ENERGY
+            or entry.device_class == DEVICE_CLASS_POWER
+        ):
             continue
 
         for trigger in TRIGGER_TYPES:

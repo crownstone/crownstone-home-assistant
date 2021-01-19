@@ -27,6 +27,10 @@
         },
         "description": "Select a Sphere that has to be configured in Home Assistant.",
         "title": "Sphere"
+      },
+      "usb": {
+        "title": "Crownstone USB Dongle",
+        "description": "The Crownstone USB Dongle provides independent switching of Crownstones and enables Power usage & Energy usage entities.\n\nIf you have one, plug it in one of your computer's USB ports.\n\nClick 'submit' when you have plugged it in."
       }
     }
   },

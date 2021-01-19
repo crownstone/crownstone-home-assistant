@@ -4,6 +4,7 @@
 | ---------------------- | ------------------- | -------------- | ----------------------------------------- | ---------------------------- |
 | 0.118.0                | 1.5.0               | 1 - 3, 6 - 29  | Crownstone Built-in One, Crownstone Plug  | Ricardo Steijn (@RicArch97)  |
 | 0.118.2                | 1.5.1               | 4, 5           | Crownstone Built-in One, Crownstone Plug  | Ricardo Steijn (@RicArch97)  |
+| 2021.1.4               | 1.6.0               | 30 - 33        | Crownstone Plug                           | Ricardo Steijn (@RicArch97)  |
 
 The goal of this rapport is to get a good view of which parts of the Home Assistant integration have been tested.
 
@@ -42,4 +43,7 @@ The tests will consist of actions that would happen with regular use of the inte
 | 27 | Presence device automation single user | Created an automation for a presence device with trigger: "A user entered the room" and action turning on a light | Upon entering the room, the light turned on |
 | 28 | Presence device automation multiple users | Created an automation for a presence device with trigger: "Multiple users entered the room", and selected 2 users from the list. Action is turning on a light | When 1 user entered the room, nothing happened. Only when the second user also entered, the light turned on |
 | 29 | Crownstone device automation power usage | Create an automation for a Crownstone device with trigger "above 100" and "below 0" and action turning off the device. A mobile airco was connected to the Crownstone | After switching on the airco, it took a minute for the power usage to go above 100W, to about 300W, on which the Crownstone switched off again |
-
+| 30 | Energy usage starts at 0 after updating/reinstalling | Removed the integration, and re-added it in Home Assistant | Values started at 0 |
+| 31 | Energy usage values restored after rebooting Home Assistant | Restart Home Assistant | Values restored to the state before rebooting Home Assistant |
+| 32 | Energy usage values correctly updated | Checked the power usage in the Crownstone app, and set a timer for a 60 seconds, then calculated value in Wh by power (W) / 60 | Correct value added to previous energy usage value |
+| 33 | Energy usage set back to 0 after a month or year has past | Created a unittest with fake values, to pretend that a month had past | In de test, de value was set back to 0 and start counting correctly after that |

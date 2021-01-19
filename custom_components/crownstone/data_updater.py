@@ -45,6 +45,8 @@ from .const import (
     SIG_ADD_PRESENCE_DEVICES,
     SIG_CROWNSTONE_STATE_UPDATE,
     SIG_CROWNSTONE_UPDATE,
+    SIG_ENERGY_STATE_UPDATE,
+    SIG_ENERGY_UPDATE,
     SIG_POWER_STATE_UPDATE,
     SIG_POWER_UPDATE,
     SIG_PRESENCE_STATE_UPDATE,
@@ -52,7 +54,13 @@ from .const import (
     SIG_TRIGGER_EVENT,
     SIG_UART_READY,
 )
-from .helpers import async_remove_devices, check_items
+from .helpers import (
+    EnergyData,
+    async_remove_devices,
+    check_items,
+    create_utc_timestamp,
+    process_energy_update,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +97,7 @@ class UpdateCoordinator:
         UartEventBus.subscribe(SystemTopics.connectionClosed, self.update_uart_state)
         UartEventBus.subscribe(UartTopics.newDataAvailable, self.update_crwn_state_uart)
         UartEventBus.subscribe(UartTopics.newDataAvailable, self.update_power_usage)
+        UartEventBus.subscribe(UartTopics.newDataAvailable, self.update_energy_usage)
 
     # SSE UPDATES
 
@@ -220,6 +229,10 @@ class UpdateCoordinator:
                     async_dispatcher_send(
                         self.hass, SIG_POWER_UPDATE, data_event.changed_item_id
                     )
+                    # update energy usage entity (name)
+                    async_dispatcher_send(
+                        self.hass, SIG_ENERGY_UPDATE, data_event.changed_item_id
+                    )
 
                 # additions or deletions
                 if data_event.operation in (OPERATION_CREATE, OPERATION_DELETE):
@@ -303,8 +316,6 @@ class UpdateCoordinator:
         """Update the power usage of a Crownstone when a Crownstone USB is available."""
         update_crownstone = self.user_data.crownstones.find_by_uid(data["id"])
         if update_crownstone is not None:
-            # for now, make sure power usage can't go below zero
-            # an improved version of power usage measuring is in development
             if data["powerUsageReal"] < 0:
                 update_crownstone.power_usage = 0
             else:
@@ -312,3 +323,21 @@ class UpdateCoordinator:
 
             # update HA state
             async_dispatcher_send(self.hass, SIG_POWER_STATE_UPDATE)
+
+    def update_energy_usage(self, data) -> None:
+        """Update the energy usage of a Crownstone when a Crownstone USB is available."""
+        update_crownstone = self.user_data.crownstones.find_by_uid(data["id"])
+        if update_crownstone is not None:
+            # create object that holds energy usage variables
+            new_energy_usage = EnergyData(
+                data["accumulatedEnergy"], create_utc_timestamp(data["timestamp"])
+            )
+
+            # compare new values to existing ones
+            process_energy_update(new_energy_usage, update_crownstone.energy_usage)
+
+            # set new data point
+            update_crownstone.energy_usage = new_energy_usage
+
+            # update HA state
+            async_dispatcher_send(self.hass, SIG_ENERGY_STATE_UPDATE)

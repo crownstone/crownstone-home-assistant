@@ -75,10 +75,9 @@ class CrownstoneHub:
         self.uart_manager.start()
 
         # Create SSE instance
-        # NOTE: hass loop is currently used as parameter,
-        # to run coroutines within the CrownstoneSSE eventbus in the HA loop.
-        # this is because CrownstoneSSE runs in an other OS thread.
-        self.sse = CrownstoneSSE(customer_email, customer_password, self.hass.loop)
+        self.sse = CrownstoneSSE(
+            customer_email, customer_password, asyncio.get_running_loop()
+        )
         self.sse.set_access_token(self.cloud.access_token)
         self.sse.start()
 

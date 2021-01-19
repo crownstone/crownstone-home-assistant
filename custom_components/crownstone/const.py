@@ -8,6 +8,7 @@ LIGHT_PLATFORM = "light"
 # Unique ID suffixes
 CROWNSTONE_SUFFIX = "relay_and_dimmer"
 POWER_USAGE_SUFFIX = "power_usage"
+ENERGY_USAGE_SUFFIX = "energy_usage"
 PRESENCE_SUFFIX = "presence"
 
 # Signals (within integration)
@@ -17,6 +18,8 @@ SIG_CROWNSTONE_STATE_UPDATE = "crownstone.crownstone_state_update"
 SIG_CROWNSTONE_UPDATE = "crownstone.crownstone_update"
 SIG_POWER_STATE_UPDATE = "crownstone.power_state_update"
 SIG_POWER_UPDATE = "crownstone.power_update"
+SIG_ENERGY_STATE_UPDATE = "crownstone.energy_state_update"
+SIG_ENERGY_UPDATE = "crownstone.energy_update"
 SIG_TRIGGER_EVENT = "crownstone.trigger_event"
 SIG_ADD_CROWNSTONE_DEVICES = "crownstone.add_crownstone_device"
 SIG_ADD_PRESENCE_DEVICES = "crownstone.add_presence_device"
@@ -49,6 +52,11 @@ PRESENCE_LOCATION = {
     "icon": "mdi:map-marker-radius",
     "description": "Location Presence",
 }
+
+# Energy usage constants
+JOULE_TO_WH = 3600
+MEASUREMENT_START = "Measurement start"
+LAST_UPDATE = "Last update"
 
 # Device automation
 

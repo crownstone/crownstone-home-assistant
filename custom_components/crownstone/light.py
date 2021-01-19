@@ -83,13 +83,13 @@ async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstone
     async_add_entities(entities)
 
 
-def crownstone_state_to_hass(value: float):
+def crownstone_state_to_hass(value: int):
     """Crownstone 0..100 to hass 0..255."""
     return numpy.interp(value, [0, 100], [0, 255])
 
 
-def hass_to_crownstone_state(value: float):
-    """Hass 0..255 to Crownstone 0..1."""
+def hass_to_crownstone_state(value: int):
+    """Hass 0..255 to Crownstone 0..100."""
     return numpy.interp(value, [0, 255], [0, 100])
 
 
@@ -222,12 +222,11 @@ class Crownstone(CrownstoneDevice, LightEntity):
                 if self.uart.is_ready():
                     self.uart.dim_crownstone(
                         self.crownstone.unique_id,
-                        # UART is still 0..1 until new release
-                        (hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]) / 100),
+                        int(hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])),
                     )
                 else:
                     await self.crownstone.async_set_brightness(
-                        hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])
+                        int(hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]))
                     )
                 # set brightness
                 self.crownstone.state = hass_to_crownstone_state(
