@@ -11,7 +11,7 @@
     "tzlocal==2.1",
     "sigfig==1.1.8"
   ],
-  "version": "1.6.2",
+  "version": "1.6.3",
   "codeowners": [
     "@Crownstone",
     "@RicArch97"
