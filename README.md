@@ -42,7 +42,7 @@ This beta version of the integration currently supports English and Dutch.
 
 # Crownstone USB dongle
 
-To use the Crownstone USB dongle in Home Assistant, plug the dongle in the a USB port of the device that runs Home Assistant. In most cases that will be a Raspberry Pi. **You must** then add the dongle to a Sphere in the Crownstone app, otherwise it will not work. It can be added like any other Crownstone. In the app, simply press the "+" button, select Crownstone, and then select Crownstone USB.
+To use the Crownstone USB dongle in Home Assistant, plug the dongle in a USB port of the device that runs Home Assistant. In most cases that will be a Raspberry Pi. **You must** then add the dongle to a Sphere in the Crownstone app, otherwise it will not work. It can be added like any other Crownstone. In the app, simply press the "+" button, select Crownstone, and then select Crownstone USB.
 
 When setting up the Crownstone integration in Home Assistant, you will have to select the serial port of the Crownstone USB dongle. You can do so by selecting the correct entry from the list:
 
