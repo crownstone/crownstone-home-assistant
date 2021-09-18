@@ -1,172 +1,134 @@
-"""Helper functions/classes for Crownstone."""
-import asyncio
-from datetime import datetime, timezone
-import threading
-from typing import Any
+"""Helper functions for the Crownstone integration."""
+from __future__ import annotations
 
-from crownstone_uart import CrownstoneUart
-from tzlocal import get_localzone
+import os
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry
+from crownstone_cloud.cloud_models.crownstones import Crownstone
+from crownstone_cloud.cloud_models.locations import Location
+from serial.tools.list_ports_common import ListPortInfo
 
-from .const import ADDED_ITEMS, DOMAIN, REMOVED_ITEMS
+from homeassistant.components import usb
+from homeassistant.const import DEVICE_CLASS_ENERGY, DEVICE_CLASS_POWER
+from homeassistant.core import HomeAssistant, T, callback
+from homeassistant.helpers import device_registry, entity_registry
 
-
-class UartManager(threading.Thread):
-    """Uart manager that manages usb connections."""
-
-    def __init__(self) -> None:
-        """Init with new event loop and instance."""
-        self.loop = asyncio.new_event_loop()
-        self.uart_instance = CrownstoneUart(self.loop)
-
-        threading.Thread.__init__(self)
-
-    def run(self) -> None:
-        """Run this function in the thread."""
-        self.loop.run_until_complete(self.initialize_usb())
-
-    async def initialize_usb(self) -> None:
-        """
-        Manage USB connections.
-
-        This function runs until Home Assistant is stopped.
-        """
-        await self.uart_instance.initialize_usb()
-
-    def stop(self) -> None:
-        """Stop the uart manager."""
-        self.uart_instance.stop()
+from .const import (
+    DOMAIN,
+    DONT_USE_USB,
+    ENERGY_USAGE_NAME_SUFFIX,
+    MANUAL_PATH,
+    POWER_USAGE_NAME_SUFFIX,
+    REFRESH_LIST,
+)
 
 
-class EnergyData:
-    """Data class that holds energy measurements."""
+def list_ports_as_str(
+    serial_ports: list[ListPortInfo], no_usb_option: bool = True
+) -> list[str]:
+    """
+    Represent currently available serial ports as string.
 
-    def __init__(self, accumulated_energy: int, utc_timestamp: Any) -> None:
-        """Initialize the object."""
-        # new value obtained from UART
-        self.energy_usage = accumulated_energy
-        # the new energy usage value (after adding the offset or previous value)
-        self.corrected_energy_usage = 0
-        # timestamp of the measurement in UTC
-        self.timestamp = utc_timestamp
-        # flag for being a first node in the energy data chain
-        self.first_measurement = False
-        # flag for a restored state from previous session
-        self.restored_state = False
+    Adds option to not use usb on top of the list,
+    option to use manual path or refresh list at the end.
+    """
+    ports_as_string: list[str] = []
+
+    if no_usb_option:
+        ports_as_string.append(DONT_USE_USB)
+
+    for port in serial_ports:
+        ports_as_string.append(
+            usb.human_readable_device_name(
+                port.device,
+                port.serial_number,
+                port.manufacturer,
+                port.description,
+                f"{hex(port.vid)[2:]:0>4}".upper(),
+                f"{hex(port.pid)[2:]:0>4}".upper(),
+            )
+        )
+    ports_as_string.append(MANUAL_PATH)
+    ports_as_string.append(REFRESH_LIST)
+
+    return ports_as_string
 
 
-def set_to_dict(input_set: set):
-    """Convert a set to a dictionary."""
-    return {key: key for key in input_set}
+def get_port(dev_path: str) -> str | None:
+    """Get the port that the by-id link points to."""
+    # not a by-id link, but just given path
+    by_id = "/dev/serial/by-id"
+    if by_id not in dev_path:
+        return dev_path
+
+    try:
+        return f"/dev/{os.path.basename(os.readlink(dev_path))}"
+    except FileNotFoundError:
+        return None
 
 
-def check_items(old_data: dict, new_data: dict) -> dict:
-    """Compare local data to new data from the cloud."""
-    changed_items = {}
-    changed_items[ADDED_ITEMS] = []
-    changed_items[REMOVED_ITEMS] = []
+def map_from_to(val: int, in_min: int, in_max: int, out_min: int, out_max: int) -> int:
+    """Map a value from a range to another."""
+    return int((val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
 
-    for device_id in new_data:
-        # check for existing devices
-        if device_id in old_data:
+
+def get_removed_items(old_data: dict[str, T], new_data: dict[str, T]) -> list[T]:
+    """Return a list with removed items from a dict."""
+    return [old_data[dev_id] for dev_id in old_data if dev_id not in new_data]
+
+
+def get_added_items(old_data: dict[str, T], new_data: dict[str, T]) -> list[T]:
+    """Return a list with added items from a dict."""
+    return [new_data[dev_id] for dev_id in new_data if dev_id not in old_data]
+
+
+@callback
+def async_update_devices(
+    hass: HomeAssistant, new_data: dict[str, Crownstone | Location]
+) -> None:
+    """Update device info when data is updated."""
+    dev_reg = device_registry.async_get(hass)
+    ent_reg = entity_registry.async_get(hass)
+
+    for crownstone_device in new_data.values():
+        ha_device = dev_reg.async_get_device({(DOMAIN, crownstone_device.cloud_id)})
+        if ha_device is None:
             continue
 
-        # new data contains an id that's not in the current data, add it
-        changed_items[ADDED_ITEMS].append(new_data.get(device_id))
+        if ha_device.name != crownstone_device.name:
+            dev_reg.async_update_device(ha_device.id, name=crownstone_device.name)
 
-    # check for removed items
-    for device_id in old_data:
-        if device_id not in new_data:
-            changed_items[REMOVED_ITEMS].append(old_data.get(device_id))
-
-    return changed_items
-
-
-async def async_remove_devices(
-    hass: HomeAssistant, entry: ConfigEntry, devices: list
-) -> None:
-    """Remove devices from HA when they were removed from the Crownstone cloud."""
-    device_reg = await device_registry.async_get_registry(hass)
-
-    for removed_device in devices:
-        # remove the device from HA.
-        # this also removes all entities of that device.
-        device = device_reg.async_get_device(
-            identifiers={(DOMAIN, removed_device.cloud_id)}, connections=set()
-        )
-        if device is not None:
-            device_reg.async_update_device(
-                device.id, remove_config_entry_id=entry.entry_id
+        if (
+            isinstance(crownstone_device, Crownstone)
+            and ha_device.sw_version != crownstone_device.sw_version
+        ):
+            dev_reg.async_update_device(
+                ha_device.id, sw_version=crownstone_device.sw_version
             )
 
+        entries = entity_registry.async_entries_for_device(ent_reg, ha_device.id, True)
+        for entry in entries:
+            if entry.name == crownstone_device.name:
+                continue
 
-def create_utc_timestamp(cs_timestamp: int):
-    """Create a UTC timestamp from a localzone Crownstone timestamp."""
-    # get the timezone of this computer
-    tz = get_localzone()
-    date = datetime.fromtimestamp(cs_timestamp, tz)
-    # calculate the offset
-    utc_offset = date.utcoffset().total_seconds()
-    # utc is the positive east, calculate timestamp
-    return cs_timestamp - utc_offset
+            new_name = crownstone_device.name
+            if entry.device_class == DEVICE_CLASS_POWER:
+                new_name = f"{new_name} {POWER_USAGE_NAME_SUFFIX}"
+            if entry.device_class == DEVICE_CLASS_ENERGY:
+                new_name = f"{new_name} {ENERGY_USAGE_NAME_SUFFIX}"
+
+            ent_reg.async_update_entity(entry.entity_id, name=new_name)
 
 
-def process_energy_update(
-    next_data_point: EnergyData, previous_data_point: EnergyData
+@callback
+def async_remove_devices(
+    hass: HomeAssistant, entry_id: str, removed_devices: list[Crownstone]
 ) -> None:
-    """
-    Process an update for the energy usage.
+    """Remove devices from HA if they were removed from the Crownstone cloud."""
+    dev_reg = device_registry.async_get(hass)
 
-    It's possible for devices to reboot (power loss, sw update, crash).
-    After a reboot the saved value for energy goes back to zero.
-    A check is done to prevent the value in HA from resetting as well.
-    """
-    next_value = next_data_point.energy_usage
-    next_timestamp = next_data_point.timestamp
-    previous_raw_value = previous_data_point.energy_usage
-    previous_value = previous_data_point.corrected_energy_usage
-    previous_timestamp = previous_data_point.timestamp
+    for removed_device in removed_devices:
+        device = dev_reg.async_get_device({(DOMAIN, removed_device.cloud_id)})
+        if device is None:
+            continue
 
-    # create data objects from timestamps
-    # check if a month or year is past
-    # we set the energy usage back to 0 each month
-    if previous_timestamp is not None:
-        next_date = datetime.fromtimestamp(next_timestamp, timezone.utc)
-        previous_date = datetime.fromtimestamp(previous_timestamp, timezone.utc)
-
-        if next_date.year > previous_date.year or next_date.month > previous_date.month:
-            next_data_point.corrected_energy_usage = 0
-            next_data_point.first_measurement = True
-            return
-
-    # initial HA value, make sure we start at 0 in HA
-    # set first measurement flag to save the start date
-    if previous_raw_value == 0 and previous_timestamp is None:
-        next_value = 0
-        next_data_point.first_measurement = True
-
-    # restored data point, set new measurement to saved value
-    elif previous_data_point.restored_state:
-        next_value = previous_value
-
-    else:
-        # calculate offset value
-        offset_value = previous_value - previous_raw_value
-
-        # if the new value is greater than the offset value, accept measurement
-        # if it is smaller, add the new value to the offsetvalue
-        # check if the new value is below the old value, but just a little, since it can increase fast
-        if next_value < previous_raw_value * 0.9:
-            next_value += previous_value
-        else:
-            next_value += offset_value
-
-        # ignore change if next value is still smaller, energy decrease unsupported
-        if next_value < previous_value:
-            next_value = previous_value
-
-    # set new value
-    next_data_point.corrected_energy_usage = next_value
+        dev_reg.async_update_device(device.id, remove_config_entry_id=entry_id)

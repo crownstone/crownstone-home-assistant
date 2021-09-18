@@ -1,72 +1,104 @@
 """Support for Crownstone devices."""
+from __future__ import annotations
+
+from collections.abc import Mapping
 from functools import partial
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
-from crownstone_cloud.cloud_models.crownstones import CrownstoneAbility
+from crownstone_cloud.cloud_models.crownstones import Crownstone, CrownstoneAbility
 from crownstone_cloud.const import (
     DIMMING_ABILITY,
     SWITCHCRAFT_ABILITY,
     TAP_TO_TOGGLE_ABILITY,
 )
 from crownstone_cloud.exceptions import CrownstoneAbilityError
-import numpy
+from crownstone_uart import CrownstoneUart
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     SUPPORT_BRIGHTNESS,
     LightEntity,
 )
-from homeassistant.core import callback
-from homeassistant.helpers.device_registry import async_get_registry as get_device_reg
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_registry import async_get_registry as get_entity_reg
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     ABILITY,
     ABILITY_STATE,
-    CROWNSTONE_EXCLUDE,
+    CROWNSTONE_INCLUDE_TYPES,
     CROWNSTONE_SUFFIX,
     DOMAIN,
     SIG_ADD_CROWNSTONE_DEVICES,
     SIG_CROWNSTONE_STATE_UPDATE,
-    SIG_CROWNSTONE_UPDATE,
-    SIG_UART_READY,
+    SIG_UART_STATE_CHANGE,
 )
 from .devices import CrownstoneDevice
+from .helpers import map_from_to
+
+if TYPE_CHECKING:
+    from .entry_manager import CrownstoneEntryManager
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Set up crownstones from a config entry."""
-    crownstone_hub = hass.data[DOMAIN][config_entry.entry_id]
+    manager: CrownstoneEntryManager = hass.data[DOMAIN][config_entry.entry_id]
 
-    entities = []
+    entities: list[CrownstoneEntity] = []
 
-    for crownstone in crownstone_hub.sphere.crownstones:
-        # some don't support light features
-        if crownstone.type not in CROWNSTONE_EXCLUDE:
-            entities.append(
-                Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
-            )
+    # Add Crownstone entities that support switching/dimming
+    for sphere in manager.cloud.cloud_data:
+        for crownstone in sphere.crownstones:
+            if crownstone.type not in CROWNSTONE_INCLUDE_TYPES:
+                continue
+            if manager.uart and sphere.cloud_id == manager.usb_sphere_id:
+                entities.append(CrownstoneEntity(crownstone, manager.uart))
+            else:
+                entities.append(CrownstoneEntity(crownstone))
 
-    # subscribe to Crownstone add signals
-    async_dispatcher_connect(
-        hass,
-        SIG_ADD_CROWNSTONE_DEVICES,
-        partial(add_crownstone_entities, async_add_entities, crownstone_hub),
+    # add callback for new devices
+    manager.config_entry.async_on_unload(
+        async_dispatcher_connect(
+            hass,
+            SIG_ADD_CROWNSTONE_DEVICES,
+            partial(async_add_crownstone_entities, async_add_entities, manager),
+        )
     )
 
     async_add_entities(entities)
 
 
+def crownstone_state_to_hass(value: int) -> int:
+    """Crownstone 0..100 to hass 0..255."""
+    return map_from_to(value, 0, 100, 0, 255)
+
+
+def hass_to_crownstone_state(value: int) -> int:
+    """Hass 0..255 to Crownstone 0..100."""
+    return map_from_to(value, 0, 255, 0, 100)
+
+
 @callback
-async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstones):
+def async_add_crownstone_entities(
+    async_add_entities: AddEntitiesCallback,
+    manager: CrownstoneEntryManager,
+    crownstones: list[Crownstone],
+    sphere_id: str,
+) -> None:
     """Add a new Crownstone device to HA."""
-    entities = []
+    entities: list[CrownstoneEntity] = []
 
     for crownstone in crownstones:
+        if crownstone.type not in CROWNSTONE_INCLUDE_TYPES:
+            continue
         # adding a Crownstone is done in 2 steps
         # these parameters have to be added for initialization
         crownstone.abilities = {
@@ -76,185 +108,137 @@ async def add_crownstone_entities(async_add_entities, crownstone_hub, crownstone
         }
         crownstone.data["currentSwitchState"] = {"switchState": 100}
 
-        entities.append(
-            Crownstone(crownstone, crownstone_hub.uart_manager.uart_instance)
-        )
+        if manager.uart and sphere_id == manager.usb_sphere_id:
+            entities.append(CrownstoneEntity(crownstone, manager.uart))
+        else:
+            entities.append(CrownstoneEntity(crownstone))
 
     async_add_entities(entities)
 
 
-def crownstone_state_to_hass(value: int):
-    """Crownstone 0..100 to hass 0..255."""
-    return numpy.interp(value, [0, 100], [0, 255])
-
-
-def hass_to_crownstone_state(value: int):
-    """Hass 0..255 to Crownstone 0..100."""
-    return numpy.interp(value, [0, 255], [0, 100])
-
-
-class Crownstone(CrownstoneDevice, LightEntity):
+class CrownstoneEntity(CrownstoneDevice, LightEntity):
     """
     Representation of a crownstone.
 
     Light platform is used to support dimming.
     """
 
-    def __init__(self, crownstone, uart):
+    _attr_should_poll = False
+    _attr_icon = "mdi:power-socket-de"
+
+    def __init__(self, crownstone_data: Crownstone, usb: CrownstoneUart = None) -> None:
         """Initialize the crownstone."""
-        super().__init__(crownstone)
-        self.uart = uart
+        super().__init__(crownstone_data)
+        self.usb = usb
+        # Entity class attributes
+        self._attr_name = str(self.device.name)
+        self._attr_unique_id = f"{self.cloud_id}-{CROWNSTONE_SUFFIX}"
 
     @property
-    def name(self) -> str:
-        """Return the name of this presence holder."""
-        return self.crownstone.name
+    def usb_available(self) -> bool:
+        """Return if this entity can use a usb dongle."""
+        return self.usb is not None and self.usb.is_ready()
 
     @property
-    def unique_id(self) -> Optional[str]:
-        """Return the unique id of this entity."""
-        return f"{self.cloud_id}-{CROWNSTONE_SUFFIX}"
-
-    @property
-    def icon(self) -> Optional[str]:
-        """Return the icon."""
-        return "mdi:power-socket-de"
-
-    @property
-    def brightness(self) -> float:
+    def brightness(self) -> int | None:
         """Return the brightness if dimming enabled."""
-        return crownstone_state_to_hass(self.crownstone.state)
+        return crownstone_state_to_hass(self.device.state)
 
     @property
     def is_on(self) -> bool:
         """Return if the device is on."""
-        return crownstone_state_to_hass(self.crownstone.state) > 0
+        return crownstone_state_to_hass(self.device.state) > 0
 
     @property
     def supported_features(self) -> int:
         """Return the supported features of this Crownstone."""
-        if self.crownstone.abilities.get(DIMMING_ABILITY).is_enabled:
+        if self.device.abilities.get(DIMMING_ABILITY).is_enabled:
             return SUPPORT_BRIGHTNESS
         return 0
 
     @property
-    def should_poll(self) -> bool:
-        """Return if polling is required after switching."""
-        return False
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        """State attributes for Crownstone devices."""
+        attributes: dict[str, Any] = {}
+        # switch method
+        if self.usb_available:
+            attributes["switch_method"] = "Crownstone USB Dongle"
+        else:
+            attributes["switch_method"] = "Crownstone Cloud"
+
+        # crownstone abilities
+        attributes["dimming"] = ABILITY_STATE.get(
+            self.device.abilities.get(DIMMING_ABILITY).is_enabled
+        )
+        attributes["tap_to_toggle"] = ABILITY_STATE.get(
+            self.device.abilities.get(TAP_TO_TOGGLE_ABILITY).is_enabled
+        )
+        attributes["switchcraft"] = ABILITY_STATE.get(
+            self.device.abilities.get(SWITCHCRAFT_ABILITY).is_enabled
+        )
+
+        return attributes
 
     async def async_added_to_hass(self) -> None:
         """Set up a listener when this entity is added to HA."""
+        # new state received
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, SIG_CROWNSTONE_STATE_UPDATE, self.async_write_ha_state
             )
         )
+        # updates state attributes when usb connects/disconnects
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, SIG_CROWNSTONE_UPDATE, self.async_update_entity_and_device
+                self.hass, SIG_UART_STATE_CHANGE, self.async_write_ha_state
             )
         )
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIG_UART_READY, self.async_write_ha_state
-            )
-        )
-
-    @property
-    def device_state_attributes(self) -> Optional[Dict[str, Any]]:
-        """State attributes for Crownstone devices."""
-        attributes = {}
-        # switch method
-        if self.uart.is_ready():
-            attributes["Switch Method"] = "Crownstone USB Dongle"
-        else:
-            attributes["Switch Method"] = "Crownstone Cloud"
-
-        # crownstone abilities
-        attributes["Dimming"] = ABILITY_STATE.get(
-            self.crownstone.abilities.get(DIMMING_ABILITY).is_enabled
-        )
-        attributes["Tap To Toggle"] = ABILITY_STATE.get(
-            self.crownstone.abilities.get(TAP_TO_TOGGLE_ABILITY).is_enabled
-        )
-        attributes["Switchcraft"] = ABILITY_STATE.get(
-            self.crownstone.abilities.get(SWITCHCRAFT_ABILITY).is_enabled
-        )
-
-        return attributes
-
-    @callback
-    async def async_update_entity_and_device(self, crownstone_id: str) -> None:
-        """
-        Update the entity and device information after data was updated.
-
-        Entity & device name for Crownstones should be the same.
-        """
-        if crownstone_id == self.cloud_id:
-            device_reg = await get_device_reg(self.hass)
-            entity_reg = await get_entity_reg(self.hass)
-
-            # get device
-            device = device_reg.async_get_device(
-                identifiers={(DOMAIN, self.cloud_id)}, connections=set()
-            )
-            if device is not None:
-                # check if update is necessary
-                if not device.name == self.name:
-                    device_reg.async_update_device(
-                        device.id, name=self.name, name_by_user=self.name
-                    )
-                if not device.sw_version == self.crownstone.sw_version:
-                    device_reg.async_update_device(
-                        device.id, sw_version=self.crownstone.sw_version
-                    )
-
-            # check if entity update is necessary
-            if not self.registry_entry.name == self.name:
-                entity_reg.async_update_entity(self.entity_id, name=self.name)
-
-        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on this light via dongle or cloud."""
         if ATTR_BRIGHTNESS in kwargs:
-            try:
-                if self.uart.is_ready():
-                    self.uart.dim_crownstone(
-                        self.crownstone.unique_id,
-                        int(hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])),
+            if self.usb_available:
+                await self.hass.async_add_executor_job(
+                    partial(
+                        self.usb.dim_crownstone,
+                        self.device.unique_id,
+                        hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]),
                     )
-                else:
-                    await self.crownstone.async_set_brightness(
-                        int(hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS]))
-                    )
-                # set brightness
-                self.crownstone.state = hass_to_crownstone_state(
-                    kwargs[ATTR_BRIGHTNESS]
                 )
-                self.async_write_ha_state()
-            except CrownstoneAbilityError as ability_error:
-                _LOGGER.error(ability_error)
-        elif self.uart.is_ready():
-            self.uart.switch_crownstone(self.crownstone.unique_id, on=True)
-            # set state (in case the updates never comes in)
-            self.crownstone.state = 100
+            else:
+                try:
+                    await self.device.async_set_brightness(
+                        hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])
+                    )
+                except CrownstoneAbilityError as ability_error:
+                    _LOGGER.error(ability_error)
+                    return
+
+            # assume brightness is set on device
+            self.device.state = hass_to_crownstone_state(kwargs[ATTR_BRIGHTNESS])
             self.async_write_ha_state()
+
+        elif self.usb_available:
+            await self.hass.async_add_executor_job(
+                partial(self.usb.switch_crownstone, self.device.unique_id, on=True)
+            )
+            self.device.state = 100
+            self.async_write_ha_state()
+
         else:
-            await self.crownstone.async_turn_on()
-            # set state (in case the updates never comes in)
-            self.crownstone.state = 100
+            await self.device.async_turn_on()
+            self.device.state = 100
             self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off this device via dongle or cloud."""
-        if self.uart.is_ready():
-            # switch using crownstone usb dongle
-            self.uart.switch_crownstone(self.crownstone.unique_id, on=False)
-        else:
-            # switch remotely using the cloud
-            await self.crownstone.async_turn_off()
+        if self.usb_available:
+            await self.hass.async_add_executor_job(
+                partial(self.usb.switch_crownstone, self.device.unique_id, on=False)
+            )
 
-        # set state (in case the updates never comes in)
-        self.crownstone.state = 0
+        else:
+            await self.device.async_turn_off()
+
+        self.device.state = 0
         self.async_write_ha_state()

@@ -1,0 +1,88 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Account is al geconfigureerd",
+            "usb_setup_complete": "Crownstone USB configuratie is voltooid",
+            "usb_setup_unsuccessful": "Crownstone USB configuratie is mislukt"
+        },
+        "error": {
+            "account_not_verified": "Account is niet geverifieerd. Activeer eerst uw account via de activatiemail die u van Crownstone heeft gehad",
+            "invalid_auth": "Ongeldige authenticatie",
+            "unknown": "Onverwachte fout"
+        },
+        "step": {
+            "usb_config": {
+                "data": {
+                    "usb_path": "USB apparaatpad"
+                },
+                "description": "Selecteer de seri\u00eble poort van de Crownstone USB stick, selecteer 'Don't use USB' als u geen USB stick wilt instellen.\n\nZoek een apparaat met VID 10C4 en PID EA60.",
+                "title": "Crownstone USB stick configuratie"
+            },
+            "usb_manual_config": {
+                "data": {
+                    "usb_manual_path": "USB apparaatpad"
+                },
+                "description": "Voer handmatig het pad van een Crownstone USB stick in.",
+                "title": "Crownstone USB stick handmatige invoer"
+            },
+            "usb_sphere_config": {
+                "data": {
+                    "usb_sphere": "Crownstone Sfeer"
+                },
+                "description": "Selecteer een Crownstone Sfeer waarin de USB zich bevindt.",
+                "title": "Crownstone USB Sfeer"
+            },
+            "user": {
+                "data": {
+                    "email": "Email",
+                    "password": "Wachtwoord"
+                },
+                "title": "Crownstone account"
+            }
+        }
+    },
+    "device_automation": {
+        "condition_type": {
+            "any_user_present": "Een willekeurige gebruiker is aanwezig in {entity_name}",
+            "users_not_present": "Gebruikers zijn niet aanwezig in {entity_name}",
+            "users_present": "Gebruikers zijn aanwezig in {entity_name}"
+        },
+        "trigger_type": {
+            "any_user_entered": "Een willekeurige gebruiker is {entity_name} binnengegaan",
+            "any_user_left": "Een willekeurige gebruiker heeft {entity_name} verlaten",
+            "user_entered": "Een gebruiker is {entity_name} binnengegaan",
+            "user_left": "Een gebruiker heeft {entity_name} verlaten"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "usb_sphere_option": "Crownstone Sfeer waarin de USB zich bevindt",
+                    "use_usb_option": "Gebruik een Crownstone USB stick voor lokale datatransmissie"
+                }
+            },
+            "usb_config_option": {
+                "data": {
+                    "usb_path": "USB apparaatpad"
+                },
+                "description": "Selecteer de seri\u00eble poort van de Crownstone USB stick.\n\nZoek een apparaat met VID 10C4 en PID EA60.",
+                "title": "Crownstone USB stick configuratie"
+            },
+            "usb_manual_config_option": {
+                "data": {
+                    "usb_manual_path": "USB apparaatpad"
+                },
+                "description": "Voer handmatig het pad van een Crownstone USB stick in.",
+                "title": "Crownstone USB stick handmatige invoer"
+            },
+            "usb_sphere_config_option": {
+                "data": {
+                    "usb_sphere": "Crownstone Sfeer"
+                },
+                "description": "Selecteer een Crownstone Sfeer waarin de USB zich bevindt.",
+                "title": "Crownstone USB Sfeer"
+            }
+        }
+    }
+}

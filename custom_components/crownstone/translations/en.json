@@ -1,47 +1,88 @@
 {
-  "title": "Crownstone",
-  "config": {
-    "abort": {
-      "single_instance_allowed": "There can be only 1 Sphere in a house.",
-      "already_configured": "This Sphere is already configured."
-    },
-    "error": {
-      "cannot_connect": "Cannot connect to the Crownstone Cloud, Check the internet connection and try again.",
-      "account_not_verified": "Account not verified. Please activate your account through the activation email from Crownstone.",
-      "invalid_auth": "Invalid email / password.",
-      "auth_input_none": "Field for email is empty. Please fill in both fields and try again.",
-      "unknown_error": "Unexpected error occurred."
-    },
-    "step": {
-      "user": {
-        "data": {
-          "password": "Password",
-          "username": "Email"
+    "config": {
+        "abort": {
+            "already_configured": "Account is already configured",
+            "usb_setup_complete": "Crownstone USB setup complete",
+            "usb_setup_unsuccessful": "Crownstone USB setup was unsuccessful"
         },
-        "description": "Enter your email and password for Crownstone.",
-        "title": "Crownstone"
-      },
-      "sphere": {
-        "data": {
-          "sphere": "Sphere name"
+        "error": {
+            "account_not_verified": "Account not verified. Please activate your account through the activation email from Crownstone",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error"
         },
-        "description": "Select a Sphere that has to be configured in Home Assistant.",
-        "title": "Sphere"
-      },
-      "usb": {
-        "title": "Crownstone USB Dongle",
-        "description": "The Crownstone USB Dongle provides independent switching of Crownstones and enables Power usage & Energy usage entities.\n\nIf you have one, plug it in one of your computer's USB ports.\n\nClick 'submit' when you have plugged it in."
-      }
+        "step": {
+            "usb_config": {
+                "data": {
+                    "usb_path": "USB Device Path"
+                },
+                "description": "Select the serial port of the Crownstone USB dongle, or select 'Don't use USB' if you don't want to setup a USB dongle.\n\nLook for a device with VID 10C4 and PID EA60.",
+                "title": "Crownstone USB dongle configuration"
+            },
+            "usb_manual_config": {
+                "data": {
+                    "usb_manual_path": "USB Device Path"
+                },
+                "description": "Manually enter the path of a Crownstone USB dongle.",
+                "title": "Crownstone USB dongle manual path"
+            },
+            "usb_sphere_config": {
+                "data": {
+                    "usb_sphere": "Crownstone Sphere"
+                },
+                "description": "Select a Crownstone Sphere where the USB is located.",
+                "title": "Crownstone USB Sphere"
+            },
+            "user": {
+                "data": {
+                    "email": "Email",
+                    "password": "Password"
+                },
+                "title": "Crownstone account"
+            }
+        }
+    },
+    "device_automation": {
+        "condition_type": {
+            "any_user_present": "Any user is present in {entity_name}",
+            "users_not_present": "Users are not present in {entity_name}",
+            "users_present": "Users are present in {entity_name}"
+        },
+        "trigger_type": {
+            "any_user_entered": "Any user has entered {entity_name}",
+            "any_user_left": "Any user has left {entity_name}",
+            "user_entered": "A user has entered {entity_name}",
+            "user_left": "A user has left {entity_name}"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "usb_sphere_option": "Crownstone Sphere where the USB is located",
+                    "use_usb_option": "Use a Crownstone USB dongle for local data transmission"
+                }
+            },
+            "usb_config_option": {
+                "data": {
+                    "usb_path": "USB Device Path"
+                },
+                "description": "Select the serial port of the Crownstone USB dongle.\n\nLook for a device with VID 10C4 and PID EA60.",
+                "title": "Crownstone USB dongle configuration"
+            },
+            "usb_manual_config_option": {
+                "data": {
+                    "usb_manual_path": "USB Device Path"
+                },
+                "description": "Manually enter the path of a Crownstone USB dongle.",
+                "title": "Crownstone USB dongle manual path"
+            },
+            "usb_sphere_config_option": {
+                "data": {
+                    "usb_sphere": "Crownstone Sphere"
+                },
+                "description": "Select a Crownstone Sphere where the USB is located.",
+                "title": "Crownstone USB Sphere"
+            }
+        }
     }
-  },
-  "device_automation": {
-    "trigger_type": {
-      "user_entered": "A user has entered the {entity_name}",
-      "user_left": "A user has left the {entity_name}",
-      "multiple_entered": "Multiple users have entered the {entity_name}",
-      "multiple_left": "Multiple users have left the {entity_name}",
-      "all_entered": "All users have entered the {entity_name}",
-      "all_left": "All users have left the {entity_name}"
-    }
-  }
 }

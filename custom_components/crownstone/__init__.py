@@ -1,34 +1,44 @@
 """Integration for Crownstone."""
+from __future__ import annotations
+
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .hub import CrownstoneHub
+from .entry_manager import CrownstoneEntryManager
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
-    """Initiate the Crownstone component."""
-    hass.data[DOMAIN] = {}
-    return True
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug("Migrating from version %s", entry.version)
+
+    hass.async_create_task(hass.config_entries.async_remove(entry.entry_id))
+
+    current_flows = hass.config_entries.flow.async_progress()
+    if not [flow for flow in current_flows if flow["handler"] == DOMAIN]:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}
+            )
+        )
+
+    return False
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Initiate the Crownstone API login from a config entry."""
-    crownstone_hub = CrownstoneHub(hass, entry)
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Initiate setup for a Crownstone config entry."""
+    manager = CrownstoneEntryManager(hass, entry)
 
-    if not await crownstone_hub.async_setup():
-        return False
-
-    hass.data[DOMAIN][entry.entry_id] = crownstone_hub
-
-    return True
+    return await manager.async_setup()
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    crownstone_hub = hass.data[DOMAIN].pop(entry.entry_id)
-    return await crownstone_hub.async_reset()
+    unload_ok: bool = await hass.data[DOMAIN][entry.entry_id].async_unload()
+    if len(hass.data[DOMAIN]) == 0:
+        hass.data.pop(DOMAIN)
+    return unload_ok

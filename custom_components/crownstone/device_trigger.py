@@ -1,6 +1,15 @@
-"""Provides device automation for Crownstone presence sensors."""
-from typing import List
+"""Provide device triggers for Crownstone presence sensors."""
+from __future__ import annotations
 
+from typing import Any, Final
+
+from crownstone_sse.const import (
+    EVENT_PRESENCE,
+    EVENT_PRESENCE_ENTER_LOCATION,
+    EVENT_PRESENCE_ENTER_SPHERE,
+    EVENT_PRESENCE_EXIT_LOCATION,
+    EVENT_PRESENCE_EXIT_SPHERE,
+)
 import voluptuous as vol
 
 from homeassistant.components.automation import AutomationActionType
@@ -8,46 +17,74 @@ from homeassistant.components.device_automation import DEVICE_TRIGGER_BASE_SCHEM
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
 )
+from homeassistant.components.homeassistant.triggers.event import (
+    CONF_EVENT_TYPE,
+    TRIGGER_SCHEMA as EVENT_TRIGGER_SCHEMA,
+    async_attach_trigger as async_attach_event_trigger,
+)
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import (
     CONF_DEVICE,
     CONF_DEVICE_ID,
     CONF_DOMAIN,
     CONF_ENTITY_ID,
+    CONF_EVENT_DATA,
+    CONF_ID,
+    CONF_NAME,
     CONF_PLATFORM,
     CONF_TYPE,
-    DEVICE_CLASS_ENERGY,
-    DEVICE_CLASS_POWER,
 )
-from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv, entity_registry
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry,
+    entity_registry,
+)
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
-    ALL_USERS_ENTERED,
-    ALL_USERS_LEFT,
+    CONF_ANY_USER_ENTERED,
+    CONF_ANY_USER_LEFT,
+    CONF_LOCATION,
+    CONF_SPHERE,
+    CONF_SUBTYPE,
     CONF_USER,
+    CONF_USER_ENTERED,
+    CONF_USER_LEFT,
     CONF_USERS,
     DOMAIN,
-    EVENT_USER_ENTERED,
-    EVENT_USER_LEFT,
-    MULTIPLE_USERS_ENTERED,
-    MULTIPLE_USERS_LEFT,
-    SENSOR_PLATFORM,
-    USER_ENTERED,
-    USER_LEFT,
+    PRESENCE_LOCATION,
+    PRESENCE_SPHERE,
+    PRESENCE_SUFFIX,
 )
-from .helpers import set_to_dict
+from .entry_manager import CrownstoneEntryManager
 
-TRIGGER_TYPES = {
-    USER_ENTERED,
-    USER_LEFT,
-    MULTIPLE_USERS_ENTERED,
-    MULTIPLE_USERS_LEFT,
-    ALL_USERS_ENTERED,
-    ALL_USERS_LEFT,
+SUPPORTED_DEVICES: Final[set[str]] = {PRESENCE_LOCATION, PRESENCE_SPHERE}
+
+EVENT_SUBTYPES: Final[dict[str, dict[str, str]]] = {
+    CONF_SPHERE: {
+        CONF_USER_ENTERED: EVENT_PRESENCE_ENTER_SPHERE,
+        CONF_ANY_USER_ENTERED: EVENT_PRESENCE_ENTER_SPHERE,
+        CONF_USER_LEFT: EVENT_PRESENCE_EXIT_SPHERE,
+        CONF_ANY_USER_LEFT: EVENT_PRESENCE_EXIT_SPHERE,
+    },
+    CONF_LOCATION: {
+        CONF_USER_ENTERED: EVENT_PRESENCE_ENTER_LOCATION,
+        CONF_ANY_USER_ENTERED: EVENT_PRESENCE_ENTER_LOCATION,
+        CONF_USER_LEFT: EVENT_PRESENCE_EXIT_LOCATION,
+        CONF_ANY_USER_LEFT: EVENT_PRESENCE_EXIT_LOCATION,
+    },
 }
 
-TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
+TRIGGER_TYPES: Final[set[str]] = {
+    CONF_USER_ENTERED,
+    CONF_USER_LEFT,
+    CONF_ANY_USER_ENTERED,
+    CONF_ANY_USER_LEFT,
+}
+
+TRIGGER_SCHEMA: Final = DEVICE_TRIGGER_BASE_SCHEMA.extend(
     {
         vol.Required(CONF_ENTITY_ID): cv.entity_id,
         vol.Required(CONF_TYPE): vol.In(TRIGGER_TYPES),
@@ -56,99 +93,114 @@ TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
 )
 
 
-async def get_crownstone_users(hass: HomeAssistant, entity_id: str) -> set:
-    """Fetch the users for the Crownstone config entry."""
-    registry = await entity_registry.async_get_registry(hass)
+def _async_get_trigger_data(
+    hass: HomeAssistant, entity_id: str
+) -> dict[str, Any] | None:
+    """Get the Crownstone users and information about the selected device."""
+    event_data: dict[str, Any] = {}
+
+    registry = entity_registry.async_get(hass)
     entity = registry.async_get(entity_id)
+    if entity is None:
+        return None
 
-    crownstone_users = set()
-    crownstone_hub = hass.data[DOMAIN][entity.config_entry_id]
-    for user in crownstone_hub.sphere.users:
-        crownstone_users.add(f"{user.first_name} {user.last_name}")
+    crownstone_device_id = entity.unique_id[: -(len(PRESENCE_SUFFIX) + 1)]
+    manager: CrownstoneEntryManager = hass.data[DOMAIN][entity.config_entry_id]
 
-    return crownstone_users
+    event_data[CONF_ID] = crownstone_device_id
+    # selected device can be sphere or location
+    for sphere in manager.cloud.cloud_data:
+        if (
+            sphere.cloud_id == crownstone_device_id
+            or crownstone_device_id in sphere.locations.locations
+        ):
+            event_data[CONF_SPHERE] = sphere.cloud_id
+            event_data[CONF_USERS] = {
+                f"{user.first_name} {user.last_name}" for user in sphere.users
+            }
+
+        # specific device type
+        if sphere.cloud_id == crownstone_device_id:
+            event_data[CONF_DEVICE] = CONF_SPHERE
+        elif crownstone_device_id in sphere.locations.locations:
+            event_data[CONF_DEVICE] = CONF_LOCATION
+        else:
+            continue
+
+    return event_data
 
 
 async def async_validate_trigger_config(
     hass: HomeAssistant, config: ConfigType
 ) -> ConfigType:
     """Validate config."""
-    config = TRIGGER_SCHEMA(config)
+    validated_config: ConfigType = TRIGGER_SCHEMA(config)
 
-    user_schema = vol.Schema(
-        {vol.Required(CONF_USER): cv.string}, extra=vol.ALLOW_EXTRA
-    )
-    users_schema = vol.Schema(
-        {vol.Required(CONF_USERS): cv.ensure_list}, extra=vol.ALLOW_EXTRA
-    )
+    if config[CONF_TYPE] in (CONF_USER_ENTERED, CONF_USER_LEFT):
+        user_schema = TRIGGER_SCHEMA.extend(
+            {vol.Required(CONF_USER): cv.string},
+        )
+        validated_config = user_schema(config)
 
-    if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
-        try:
-            user_schema(config)
-        except vol.Invalid:
-            raise InvalidDeviceAutomationConfig(
-                "User name not provided, or user name not of type string."
-            )
-    elif config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-        try:
-            users_schema(config)
-        except vol.Invalid:
-            raise InvalidDeviceAutomationConfig(
-                "User names not provided, or user names not of type list."
-            )
+    registry = device_registry.async_get(hass)
+    device = registry.async_get(validated_config[CONF_DEVICE_ID])
 
-    return config
+    if device is None:
+        raise InvalidDeviceAutomationConfig(
+            f"Device with ID {validated_config[CONF_DEVICE_ID]} not found."
+        )
+
+    if device.model not in SUPPORTED_DEVICES:
+        raise InvalidDeviceAutomationConfig(
+            f"Crownstone device triggers are not available for device "
+            f"{device.name} ({validated_config[CONF_DEVICE_ID]}). "
+            f"Select a Crownstone presence device to use device triggers."
+        )
+
+    return validated_config
 
 
-async def async_get_triggers(hass: HomeAssistant, device_id: str) -> List[dict]:
-    """List device triggers for Crownstone devices."""
-    registry = await entity_registry.async_get_registry(hass)
-    triggers = []
+async def async_get_triggers(
+    hass: HomeAssistant, device_id: str
+) -> list[dict[str, str]]:
+    """List device triggers for Crownstone presence devices."""
+    registry = entity_registry.async_get(hass)
+    triggers: list[dict[str, str]] = []
 
-    # loop through all entities for device
     for entry in entity_registry.async_entries_for_device(registry, device_id):
-        # make sure to only add custom triggers to presence sensor entities
-        if (
-            entry.domain != SENSOR_PLATFORM
-            or entry.device_class == DEVICE_CLASS_ENERGY
-            or entry.device_class == DEVICE_CLASS_POWER
-        ):
+        # only support presence sensors, which have no device class
+        if entry.domain != SENSOR_DOMAIN or entry.device_class is not None:
             continue
 
-        for trigger in TRIGGER_TYPES:
-            triggers.append(
-                {
-                    CONF_PLATFORM: CONF_DEVICE,
-                    CONF_DEVICE_ID: device_id,
-                    CONF_DOMAIN: DOMAIN,
-                    CONF_ENTITY_ID: entry.entity_id,
-                    CONF_TYPE: trigger,
-                }
-            )
+        base_trigger = {
+            CONF_PLATFORM: CONF_DEVICE,
+            CONF_DEVICE_ID: device_id,
+            CONF_DOMAIN: DOMAIN,
+            CONF_ENTITY_ID: entry.entity_id,
+        }
+
+        triggers += [{**base_trigger, CONF_TYPE: trigger} for trigger in TRIGGER_TYPES]
 
     return triggers
 
 
-async def async_get_trigger_capabilities(hass: HomeAssistant, config: dict) -> dict:
-    """List trigger capabilities based on trigger type."""
-    crownstone_users = await get_crownstone_users(hass, config[CONF_ENTITY_ID])
+async def async_get_trigger_capabilities(
+    hass: HomeAssistant, config: ConfigType
+) -> dict[str, vol.Schema]:
+    """List trigger capabilities for specific trigger types."""
+    trigger_data = _async_get_trigger_data(hass, config[CONF_ENTITY_ID])
+    if trigger_data is None:
+        raise HomeAssistantError(
+            f"Could not get trigger data for entity {config[CONF_ENTITY_ID]}"
+        )
 
-    if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
+    if config[CONF_TYPE] in (CONF_USER_ENTERED, CONF_USER_LEFT):
         return {
             "extra_fields": vol.Schema(
-                {vol.Required(CONF_USER): vol.In(crownstone_users)}
+                {vol.Required(CONF_USER): vol.In(trigger_data[CONF_USERS])}
             )
         }
-    if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-        return {
-            "extra_fields": vol.Schema(
-                {
-                    vol.Required(CONF_USERS): cv.multi_select(
-                        set_to_dict(crownstone_users)
-                    )
-                }
-            )
-        }
+
     return {}
 
 
@@ -156,108 +208,41 @@ async def async_attach_trigger(
     hass: HomeAssistant,
     config: ConfigType,
     action: AutomationActionType,
-    automation_info: dict,
+    automation_info: dict[str, Any],
 ) -> CALLBACK_TYPE:
-    """Attach a trigger."""
-    config = TRIGGER_SCHEMA(config)
-    crownstone_users = await get_crownstone_users(hass, config[CONF_ENTITY_ID])
+    """Attach triggers to Crownstone presence events."""
+    trigger_data = _async_get_trigger_data(hass, config[CONF_ENTITY_ID])
+    if trigger_data is None:
+        raise HomeAssistantError(
+            f"Could not get trigger data for entity {config[CONF_ENTITY_ID]}"
+        )
 
-    if config[CONF_TYPE] in (USER_ENTERED, USER_LEFT):
-        # Check if the username exists in the Crownstone data
-        if config[CONF_USER] not in crownstone_users:
+    presence_event: dict[str, Any] = {
+        CONF_TYPE: EVENT_PRESENCE,
+        CONF_SUBTYPE: EVENT_SUBTYPES[trigger_data[CONF_DEVICE]][config[CONF_TYPE]],
+        CONF_SPHERE: {CONF_ID: trigger_data[CONF_SPHERE]},
+    }
+
+    if config[CONF_TYPE] in (CONF_USER_ENTERED, CONF_USER_LEFT):
+        if config[CONF_USER] not in trigger_data[CONF_USERS]:
             raise InvalidDeviceAutomationConfig(
-                f"Invalid username '{config[CONF_USER]}'. Make sure you are using the full name, case sensitive."
+                f"Invalid username '{config[CONF_USER]}'. "
+                f"Make sure you are using the full name, case sensitive."
             )
 
-        # match the entity_id of the entity which fired a state change
-        # match the username of the person entered or left
-        event_data = {
-            CONF_ENTITY_ID: config[CONF_ENTITY_ID],
-            CONF_USER: config[CONF_USER],
-        }
+        presence_event[CONF_USER] = {CONF_NAME: config[CONF_USER]}
 
-        @callback
-        def handle_presence_event(event: Event):
-            """Listen for events and call action when the required event is received."""
-            if event.data == event_data:
-                hass.async_run_job(
-                    action,
-                    {
-                        "trigger": {
-                            "platform": CONF_DEVICE,
-                            "event": event,
-                            "description": f"event '{event.event_type}'",
-                        }
-                    },
-                    event.context,
-                )
+    # this data is only necessary for a location device
+    if trigger_data[CONF_DEVICE] == CONF_LOCATION:
+        presence_event[CONF_LOCATION] = {CONF_ID: trigger_data[CONF_ID]}
 
-        # listen for either left or enter event
-        if config[CONF_TYPE] == USER_ENTERED:
-            return hass.bus.async_listen(EVENT_USER_ENTERED, handle_presence_event)
-        elif config[CONF_TYPE] == USER_LEFT:
-            return hass.bus.async_listen(EVENT_USER_LEFT, handle_presence_event)
+    event_config = {
+        CONF_PLATFORM: "event",
+        CONF_EVENT_TYPE: f"{DOMAIN}_{EVENT_PRESENCE}",
+        CONF_EVENT_DATA: presence_event,
+    }
+    event_config = EVENT_TRIGGER_SCHEMA(event_config)
 
-    elif config[CONF_TYPE] in (
-        MULTIPLE_USERS_ENTERED,
-        MULTIPLE_USERS_LEFT,
-        ALL_USERS_ENTERED,
-        ALL_USERS_LEFT,
-    ):
-        # check if the usernames exist in the Crownstone data
-        if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-            config_users = set(config[CONF_USERS])
-            if not config_users.issubset(crownstone_users):
-                raise InvalidDeviceAutomationConfig(
-                    f"Invalid user names in '{config_users}'. Makes sure you are using the full names, case sensitive."
-                )
-
-        # match the entity_id of the entity which fired a state change
-        # cache incoming events based on the amount of users in config
-        # the action will be executed when there is an event received for all user names.
-        event_registry = []
-
-        # create a registry with the events that need to be matched
-        def fill_registry(users: list):
-            """Fill the event registry with users."""
-            for user in users:
-                event_registry.append(
-                    {CONF_ENTITY_ID: config[CONF_ENTITY_ID], CONF_USER: user}
-                )
-
-        if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-            fill_registry(config[CONF_USERS])
-        if config[CONF_TYPE] in (ALL_USERS_ENTERED, ALL_USERS_LEFT):
-            fill_registry(list(crownstone_users))
-
-        @callback
-        def handle_presence_events(event: Event):
-            """Listen for events and calls action when all required events are received."""
-            if event.data in event_registry:
-                # event received that's in the registry, remove it from the list
-                event_registry.remove(event.data)
-
-            # all events for the users have been received, execute the action
-            if not event_registry:
-                hass.async_run_job(
-                    action,
-                    {
-                        "trigger": {
-                            "platform": CONF_DEVICE,
-                            "event": event,
-                            "description": f"event '{event.event_type}'",
-                        }
-                    },
-                    event.context,
-                )
-                # restore the registry
-                if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, MULTIPLE_USERS_LEFT):
-                    fill_registry(config[CONF_USERS])
-                if config[CONF_TYPE] in (ALL_USERS_ENTERED, ALL_USERS_LEFT):
-                    fill_registry(list(crownstone_users))
-
-        # listen for either entered or left events
-        if config[CONF_TYPE] in (MULTIPLE_USERS_ENTERED, ALL_USERS_ENTERED):
-            return hass.bus.async_listen(EVENT_USER_ENTERED, handle_presence_events)
-        elif config[CONF_TYPE] in (MULTIPLE_USERS_LEFT, ALL_USERS_LEFT):
-            return hass.bus.async_listen(EVENT_USER_LEFT, handle_presence_events)
+    return await async_attach_event_trigger(
+        hass, event_config, action, automation_info, platform_type=CONF_DEVICE
+    )
