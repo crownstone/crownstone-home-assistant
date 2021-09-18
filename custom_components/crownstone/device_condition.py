@@ -58,6 +58,7 @@ CONDITION_SCHEMA = DEVICE_CONDITION_BASE_SCHEMA.extend(
 )
 
 
+@callback
 def _async_get_condition_data(
     hass: HomeAssistant, entity_id: str
 ) -> dict[str, str] | None:
@@ -85,6 +86,7 @@ def _async_get_condition_data(
     return crownstone_users
 
 
+@callback
 def _async_get_state(hass: HomeAssistant, entity_id: str) -> State:
     """Get the state for an entity id. Raise error if it returns None."""
     state: State | None = hass.states.get(entity_id)
