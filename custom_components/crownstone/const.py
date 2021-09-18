@@ -11,9 +11,6 @@ PLATFORMS: Final[list[str]] = ["light", "sensor"]
 SSE_LISTENERS: Final = "sse_listeners"
 UART_LISTENERS: Final = "uart_listeners"
 
-# Class attributes
-ATTR_UART: Final = "uart"
-
 # Unique ID suffixes
 CROWNSTONE_SUFFIX: Final = "crownstone"
 POWER_USAGE_SUFFIX: Final = "power_usage"
@@ -34,8 +31,9 @@ SIG_SSE_STATE_CHANGE: Final = "crownstone.sse_state_change"
 SIG_ADD_CROWNSTONE_DEVICES: Final = "crownstone.add_crownstone_device"
 SIG_ADD_PRESENCE_DEVICES: Final = "crownstone.add_presence_device"
 
-# Abilities state
+# Abilities
 ABILITY_STATE: Final[dict[bool, str]] = {True: "Enabled", False: "Disabled"}
+ABILITY: Final[dict[str, Any]] = {"enabled": False, "properties": {}}
 
 # Config flow
 CONF_USB_PATH: Final = "usb_path"
@@ -55,11 +53,6 @@ CROWNSTONE_INCLUDE_TYPES: Final[dict[str, str]] = {
     "BUILTIN": "Built-in",
     "BUILTIN_ONE": "Built-in One",
 }
-
-# Added/deleted device or entities
-ADDED_ITEMS: Final = "added_items"
-REMOVED_ITEMS: Final = "removed_items"
-ABILITY: Final[dict[str, Any]] = {"enabled": False, "properties": {}}
 
 # Presence entity
 PRESENCE_SPHERE: Final = "Sphere Presence"
