@@ -154,16 +154,6 @@ The power usage and energy usage for each Crownstone update every minute, or ins
 
 ![Crownstone power usage](/images/power_energy_usage.png)
 
-# Creating your own rules
-
-All the update events coming from the cloud, are available for usage in automations. You can check the Crownstone events by going to developer tools -> events, and look in "available events". All Crownstone events are prefixed with `crownstone_`. 
-
-If you want to listen to an event, for example when a Crownstone was switched, enter `crownstone_switchStateUpdate` in the "Listen to events" field, and you will see data coming in once you switch a Crownstone from the Crownstone app. You can use this data to create automations, for the trigger type select "Event".
-
-You can go to [my crownstone](https://my.crownstone.rocks), login, and explore the REST API if you need insight in your own data, or look for specific ID's.
-
-This is only recommended for advanced users!
-
 # Roadmap
 
 - [x] Publish initial Crownstone integration to Home Assistant Core
