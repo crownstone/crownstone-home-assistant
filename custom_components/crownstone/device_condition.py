@@ -76,7 +76,7 @@ def _async_get_condition_data(
     for sphere in manager.cloud.cloud_data:
         if (
             sphere.cloud_id == crownstone_device_id
-            or crownstone_device_id in sphere.locations.locations
+            or crownstone_device_id in sphere.locations.data
         ):
             crownstone_users = {
                 f"{user.first_name} {user.last_name}": f"{user.first_name} {user.last_name}"

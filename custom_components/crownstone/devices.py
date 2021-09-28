@@ -11,13 +11,15 @@ from homeassistant.const import (
     ATTR_NAME,
     ATTR_SW_VERSION,
 )
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, Entity
 
 from .const import CROWNSTONE_INCLUDE_TYPES, DOMAIN
 
 
-class CrownstoneDevice:
-    """Representation of a Crownstone device."""
+class CrownstoneBaseEntity(Entity):
+    """Base entity class for Crownstone devices."""
+
+    _attr_should_poll = False
 
     def __init__(self, device: Crownstone) -> None:
         """Initialize the device."""
@@ -44,8 +46,10 @@ class CrownstoneDevice:
         }
 
 
-class PresenceDevice:
+class PresenceBaseEntity(Entity):
     """Representation of a Crownstone Presence device."""
+
+    _attr_should_poll = False
 
     def __init__(self, location: Location, model: str) -> None:
         """Initialize the location device."""

@@ -99,15 +99,9 @@ Get your Crownstone USB dongle [here](https://shop.crownstone.rocks/products/cro
 
 Crownstone are represented in the light platform, and can switch or dim. You can create a card in the overview and add your Crownstone entities to have a nice overview of your Crownstones! If a Crownstone supports dimming, there will be a brightness slider to dim your Crownstone.
 
-When the ability state of **dimming** is changed through the Crownstone app, your config entry will reload to process the change in supported features. 
-
-Crownstone entities have some state attributes to provide more information about the Crownstone. To see this information, simply click on the entity. This information is:
-* Switch method (Crownstone Cloud or Crownstone USB Dongle)
-* Dimming (Enabled or Disabled)
-* Tap To Toggle (Enabled or Disabled)
-* Switchcraft (Enabled or Disabled)
-
 ![Crownstone entity](/images/crownstone_entity.png)
+
+When the ability state of **dimming** is changed through the Crownstone app, your config entry will reload to process the change in supported features. 
 
 # Presence
 
@@ -152,7 +146,9 @@ The power usage and energy usage for each Crownstone update every minute, or ins
 - Takes the total energy amount directly from the Crownstone. This can be a big value depending on when the Crownstone started counting.
 - A Crownstone's energy usage total amount is reset back to 0 when the Crownstone is rebooted (power loss, reset or after a software update). This means the value of the energy sensor will also go back to 0, this does not affect the total amount saved in Home Assistant. You can view your delta's in the Home Assistant energy dashboard.
 
-![Crownstone power usage](/images/power_energy_usage.png)
+![Crownstone power usage](/images/device.png)
+
+The connection entity depends on whether this entity is in the same Sphere as the Crownstone USB. You should have selected in which Sphere it is in the configuration. If a device is not in the same Sphere as the Crownstone USB and can therefore not be switched by it or receive energy/power updates, the connection entity will show "Cloud". 
 
 # Roadmap
 

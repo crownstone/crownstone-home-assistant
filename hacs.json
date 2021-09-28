@@ -2,6 +2,6 @@
   "name": "Crownstone",
   "render_readme": true,
   "domains": ["light", "sensor"],
-  "homeassistant": "2021.9.0",
+  "homeassistant": "2021.10.0",
   "iot_class": ["Local Push", "Cloud Push", "Cloud Polling"]
 }

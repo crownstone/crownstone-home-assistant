@@ -62,21 +62,21 @@
                     "use_usb_option": "Gebruik een Crownstone USB stick voor lokale datatransmissie"
                 }
             },
-            "usb_config_option": {
+            "usb_config": {
                 "data": {
                     "usb_path": "USB apparaatpad"
                 },
                 "description": "Selecteer de seri\u00eble poort van de Crownstone USB stick.\n\nZoek een apparaat met VID 10C4 en PID EA60.",
                 "title": "Crownstone USB stick configuratie"
             },
-            "usb_manual_config_option": {
+            "usb_manual_config": {
                 "data": {
                     "usb_manual_path": "USB apparaatpad"
                 },
                 "description": "Voer handmatig het pad van een Crownstone USB stick in.",
                 "title": "Crownstone USB stick handmatige invoer"
             },
-            "usb_sphere_config_option": {
+            "usb_sphere_config": {
                 "data": {
                     "usb_sphere": "Crownstone Sfeer"
                 },

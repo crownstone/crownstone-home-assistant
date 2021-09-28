@@ -12,7 +12,10 @@ from crownstone_sse.const import (
 )
 import voluptuous as vol
 
-from homeassistant.components.automation import AutomationActionType
+from homeassistant.components.automation import (
+    AutomationActionType,
+    AutomationTriggerInfo,
+)
 from homeassistant.components.device_automation import DEVICE_TRIGGER_BASE_SCHEMA
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
@@ -113,7 +116,7 @@ def _async_get_trigger_data(
     for sphere in manager.cloud.cloud_data:
         if (
             sphere.cloud_id == crownstone_device_id
-            or crownstone_device_id in sphere.locations.locations
+            or crownstone_device_id in sphere.locations.data
         ):
             event_data[CONF_SPHERE] = sphere.cloud_id
             event_data[CONF_USERS] = {
@@ -123,7 +126,7 @@ def _async_get_trigger_data(
         # specific device type
         if sphere.cloud_id == crownstone_device_id:
             event_data[CONF_DEVICE] = CONF_SPHERE
-        elif crownstone_device_id in sphere.locations.locations:
+        elif crownstone_device_id in sphere.locations.data:
             event_data[CONF_DEVICE] = CONF_LOCATION
         else:
             continue
@@ -209,7 +212,7 @@ async def async_attach_trigger(
     hass: HomeAssistant,
     config: ConfigType,
     action: AutomationActionType,
-    automation_info: dict[str, Any],
+    automation_info: AutomationTriggerInfo,
 ) -> CALLBACK_TYPE:
     """Attach triggers to Crownstone presence events."""
     trigger_data = _async_get_trigger_data(hass, config[CONF_ENTITY_ID])

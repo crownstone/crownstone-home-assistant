@@ -10,6 +10,10 @@ from crownstone_cloud.cloud_models.locations import Location
 from crownstone_cloud.cloud_models.spheres import Sphere
 from crownstone_uart import CrownstoneUart
 
+from homeassistant.components.binary_sensor import (
+    DEVICE_CLASS_CONNECTIVITY,
+    DEVICE_CLASS_PRESENCE,
+)
 from homeassistant.components.sensor import (
     STATE_CLASS_MEASUREMENT,
     STATE_CLASS_TOTAL_INCREASING,
@@ -25,12 +29,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import StateType
 
 from .const import (
+    CONNECTION_NAME_SUFFIX,
+    CONNECTION_SUFFIX,
+    CONNECTIONS,
     CROWNSTONE_INCLUDE_TYPES,
     DOMAIN,
     ENERGY_USAGE_NAME_SUFFIX,
@@ -51,7 +57,7 @@ from .const import (
     SIG_SSE_STATE_CHANGE,
     SIG_UART_STATE_CHANGE,
 )
-from .devices import CrownstoneDevice, PresenceDevice
+from .devices import CrownstoneBaseEntity, PresenceBaseEntity
 
 if TYPE_CHECKING:
     from .entry_manager import CrownstoneEntryManager
@@ -65,7 +71,7 @@ async def async_setup_entry(
     """Set up sensors from a config entry."""
     manager: CrownstoneEntryManager = hass.data[DOMAIN][config_entry.entry_id]
 
-    entities: list[Presence | PowerUsage | EnergyUsage] = []
+    entities: list[Connection | Presence | PowerUsage | EnergyUsage] = []
 
     # Add sphere & location presence entities
     for sphere in manager.cloud.cloud_data:
@@ -94,16 +100,19 @@ async def async_setup_entry(
         for crownstone in sphere.crownstones:
             if crownstone.type not in CROWNSTONE_INCLUDE_TYPES:
                 continue
-            if sphere.cloud_id == manager.usb_sphere_id:
+            if manager.uart and sphere.cloud_id == manager.usb_sphere_id:
+                entities.append(Connection(crownstone, manager.uart))
                 entities.append(PowerUsage(crownstone, manager.uart))
                 entities.append(EnergyUsage(crownstone, manager.uart))
+            else:
+                entities.append(Connection(crownstone))
 
     # add callbacks for new devices
     manager.config_entry.async_on_unload(
         async_dispatcher_connect(
             hass,
             SIG_ADD_CROWNSTONE_DEVICES,
-            partial(async_add_power_and_energy_entities, async_add_entities, manager),
+            partial(async_add_conn_power_energy_entities, async_add_entities, manager),
         )
     )
     manager.config_entry.async_on_unload(
@@ -118,21 +127,24 @@ async def async_setup_entry(
 
 
 @callback
-def async_add_power_and_energy_entities(
+def async_add_conn_power_energy_entities(
     async_add_entities: AddEntitiesCallback,
     manager: CrownstoneEntryManager,
     crownstones: list[Crownstone],
     sphere_id: str,
 ) -> None:
-    """Add power and energy usage entities to a new Crownstone device."""
-    entities: list[PowerUsage | EnergyUsage] = []
+    """Add connection, power and energy usage entities to a new Crownstone device."""
+    entities: list[Connection | PowerUsage | EnergyUsage] = []
 
     for crownstone in crownstones:
         if crownstone.type not in CROWNSTONE_INCLUDE_TYPES:
             continue
         if sphere_id == manager.usb_sphere_id:
+            entities.append(Connection(crownstone, manager.uart))
             entities.append(PowerUsage(crownstone, manager.uart))
             entities.append(EnergyUsage(crownstone, manager.uart))
+        else:
+            entities.append(Connection(crownstone))
 
     async_add_entities(entities)
 
@@ -161,7 +173,7 @@ def async_add_presence_location_entities(
     async_add_entities(entities)
 
 
-class PowerUsage(CrownstoneDevice, SensorEntity):
+class PowerUsage(CrownstoneBaseEntity, SensorEntity):
     """
     Representation of a power usage sensor.
 
@@ -171,7 +183,6 @@ class PowerUsage(CrownstoneDevice, SensorEntity):
     _attr_device_class = DEVICE_CLASS_POWER
     _attr_native_unit_of_measurement = POWER_WATT
     _attr_state_class = STATE_CLASS_MEASUREMENT
-    _attr_should_poll = False
 
     def __init__(self, crownstone_data: Crownstone, usb: CrownstoneUart) -> None:
         """Initialize the power usage entity."""
@@ -199,7 +210,7 @@ class PowerUsage(CrownstoneDevice, SensorEntity):
                 self.hass, SIG_POWER_STATE_UPDATE, self.async_write_ha_state
             )
         )
-        # updates state attributes when usb connects/disconnects
+        # updates availability when usb connects/disconnects
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, SIG_UART_STATE_CHANGE, self.async_write_ha_state
@@ -207,7 +218,7 @@ class PowerUsage(CrownstoneDevice, SensorEntity):
         )
 
 
-class EnergyUsage(CrownstoneDevice, SensorEntity, RestoreEntity):
+class EnergyUsage(CrownstoneBaseEntity, SensorEntity, RestoreEntity):
     """
     Representation of an energy usage sensor.
 
@@ -217,7 +228,6 @@ class EnergyUsage(CrownstoneDevice, SensorEntity, RestoreEntity):
     _attr_device_class = DEVICE_CLASS_ENERGY
     _attr_native_unit_of_measurement = ENERGY_KILO_WATT_HOUR
     _attr_state_class = STATE_CLASS_TOTAL_INCREASING
-    _attr_should_poll = False
 
     def __init__(self, crownstone_data: Crownstone, usb: CrownstoneUart) -> None:
         """Initialize the energy usage entity."""
@@ -255,7 +265,7 @@ class EnergyUsage(CrownstoneDevice, SensorEntity, RestoreEntity):
                 self.hass, SIG_ENERGY_STATE_UPDATE, self.async_write_ha_state
             )
         )
-        # updates state attributes when usb connects/disconnects
+        # updates availability when usb connects/disconnects
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, SIG_UART_STATE_CHANGE, self.async_write_ha_state
@@ -263,14 +273,14 @@ class EnergyUsage(CrownstoneDevice, SensorEntity, RestoreEntity):
         )
 
 
-class Presence(PresenceDevice, Entity):
+class Presence(PresenceBaseEntity):
     """
     Representation of an indoor presence sensor.
 
     The state of this updated using the Crownstone SSE client via push events.
     """
 
-    _attr_should_poll = False
+    _attr_device_class = DEVICE_CLASS_PRESENCE
 
     def __init__(
         self,
@@ -331,5 +341,35 @@ class Presence(PresenceDevice, Entity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, SIG_SSE_STATE_CHANGE, self.async_write_ha_state
+            )
+        )
+
+
+class Connection(CrownstoneBaseEntity):
+    """Representation of a switch method entity."""
+
+    _attr_device_class = DEVICE_CLASS_CONNECTIVITY
+    _attr_icon = "mdi:signal-variant"
+
+    def __init__(
+        self, crownstone_data: Crownstone, usb: CrownstoneUart | None = None
+    ) -> None:
+        """Initialize connection entity."""
+        super().__init__(crownstone_data)
+        self.usb = usb
+        # Entity class attributes
+        self._attr_name = f"{self.device.name} {CONNECTION_NAME_SUFFIX}"
+        self._attr_unique_id = f"{self.cloud_id}-{CONNECTION_SUFFIX}"
+
+    @property
+    def state(self) -> StateType:
+        """Return if the binary sensor is on."""
+        return CONNECTIONS[self.usb is not None and self.usb.is_ready()]
+
+    async def async_added_to_hass(self) -> None:
+        """Set up listeners when this entity is added to HA."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIG_UART_STATE_CHANGE, self.async_write_ha_state
             )
         )

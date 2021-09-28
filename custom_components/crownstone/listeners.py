@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, cast
 
+from crownstone_cloud.exceptions import CrownstoneNotFoundError
 from crownstone_core.packets.serviceDataParsers.containers.AdvExternalCrownstoneState import (
     AdvExternalCrownstoneState,
 )
@@ -52,7 +53,11 @@ from homeassistant.components.crownstone.helpers import (
     get_removed_items,
 )
 from homeassistant.core import Event, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_send, dispatcher_send
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+    dispatcher_send,
+)
 
 from .const import (
     DOMAIN,
@@ -73,22 +78,22 @@ if TYPE_CHECKING:
 
 
 @callback
-def async_update_sse_state(manager: CrownstoneEntryManager, ha_event: Event) -> None:
+def async_update_sse_state(
+    manager: CrownstoneEntryManager, system_event: SystemEvent
+) -> None:
     """Update the state of the SSE client for entities that use it."""
-    system_event = SystemEvent(ha_event.data)
     if system_event.sub_type == EVENT_SYSTEM_STREAM_START:
         async_dispatcher_send(manager.hass, SIG_SSE_STATE_CHANGE)
 
 
 @callback
 def async_update_crwn_state_sse(
-    manager: CrownstoneEntryManager, ha_event: Event
+    manager: CrownstoneEntryManager, switch_event: SwitchStateUpdateEvent
 ) -> None:
     """Update the state of a Crownstone when switched externally."""
-    switch_event = SwitchStateUpdateEvent(ha_event.data)
     try:
         updated_crownstone = manager.cloud.get_crownstone_by_id(switch_event.cloud_id)
-    except KeyError:
+    except CrownstoneNotFoundError:
         return
 
     # only update on change.
@@ -98,12 +103,13 @@ def async_update_crwn_state_sse(
 
 
 @callback
-def async_update_crwn_ability(manager: CrownstoneEntryManager, ha_event: Event) -> None:
+def async_update_crwn_ability(
+    manager: CrownstoneEntryManager, ability_event: AbilityChangeEvent
+) -> None:
     """Update the ability information of a Crownstone."""
-    ability_event = AbilityChangeEvent(ha_event.data)
     try:
         updated_crownstone = manager.cloud.get_crownstone_by_id(ability_event.cloud_id)
-    except KeyError:
+    except CrownstoneNotFoundError:
         return
 
     ability_type = ability_event.ability_type
@@ -165,52 +171,52 @@ def async_update_presence(manager: CrownstoneEntryManager, ha_event: Event) -> N
     async_dispatcher_send(manager.hass, SIG_PRESENCE_STATE_UPDATE)
 
 
-async def async_update_data(manager: CrownstoneEntryManager, ha_event: Event) -> None:
+async def async_update_data(
+    manager: CrownstoneEntryManager, data_change_event: DataChangeEvent
+) -> None:
     """Update user data and remove or add new devices when detected."""
-    data_change_event = DataChangeEvent(ha_event.data)
-
     sphere = manager.cloud.cloud_data.find_by_id(data_change_event.sphere_id)
     if sphere is None:
         return
 
     if data_change_event.sub_type == EVENT_DATA_CHANGE_CROWNSTONE:
-        old_data = sphere.crownstones.crownstones.copy()
+        old_data = sphere.crownstones.data.copy()
         await sphere.crownstones.async_update_crownstone_data()
 
         if data_change_event.operation == OPERATION_UPDATE:
-            async_update_devices(manager.hass, sphere.crownstones.crownstones)
+            async_update_devices(manager.hass, sphere.crownstones.data)
         if data_change_event.operation == OPERATION_CREATE:
             async_dispatcher_send(
                 manager.hass,
                 SIG_ADD_CROWNSTONE_DEVICES,
-                get_added_items(old_data, sphere.crownstones.crownstones),
+                get_added_items(old_data, sphere.crownstones.data),
                 sphere.cloud_id,
             )
         if data_change_event.operation == OPERATION_DELETE:
             async_remove_devices(
                 manager.hass,
                 manager.config_entry.entry_id,
-                get_removed_items(old_data, sphere.crownstones.crownstones),
+                get_removed_items(old_data, sphere.crownstones.data),
             )
 
     if data_change_event.sub_type == EVENT_DATA_CHANGE_LOCATIONS:
-        old_data = sphere.locations.locations.copy()
+        old_data = sphere.locations.data.copy()
         await sphere.locations.async_update_location_data()
 
         if data_change_event.operation == OPERATION_UPDATE:
-            async_update_devices(manager.hass, sphere.locations.locations)
+            async_update_devices(manager.hass, sphere.locations.data)
         if data_change_event.operation == OPERATION_CREATE:
             async_dispatcher_send(
                 manager.hass,
                 SIG_ADD_PRESENCE_DEVICES,
-                get_added_items(old_data, sphere.locations.locations),
+                get_added_items(old_data, sphere.locations.data),
                 sphere.cloud_id,
             )
         if data_change_event.operation == OPERATION_DELETE:
             async_remove_devices(
                 manager.hass,
                 manager.config_entry.entry_id,
-                get_removed_items(old_data, sphere.locations.locations),
+                get_removed_items(old_data, sphere.locations.data),
             )
 
     if data_change_event.sub_type == EVENT_DATA_CHANGE_USERS:
@@ -239,7 +245,7 @@ def update_crwn_state_uart(
         updated_crownstone = manager.cloud.get_crownstone_by_uid(
             data.crownstoneId, manager.usb_sphere_id
         )
-    except KeyError:
+    except CrownstoneNotFoundError:
         return
 
     if data.switchState is None:
@@ -262,7 +268,7 @@ def update_power_usage(
         updated_crownstone = manager.cloud.get_crownstone_by_uid(
             data.crownstoneId, manager.usb_sphere_id
         )
-    except KeyError:
+    except CrownstoneNotFoundError:
         return
 
     if int(data.powerUsageReal) < 0:
@@ -283,7 +289,7 @@ def update_energy_usage(
         updated_crownstone = manager.cloud.get_crownstone_by_uid(
             data.crownstoneId, manager.usb_sphere_id
         )
-    except KeyError:
+    except CrownstoneNotFoundError:
         return
 
     updated_crownstone.energy_usage = int(data.accumulatedEnergy)
@@ -295,19 +301,25 @@ def setup_sse_listeners(manager: CrownstoneEntryManager) -> None:
     """Set up SSE listeners."""
     # save unsub function for when entry removed
     manager.listeners[SSE_LISTENERS] = [
-        manager.hass.bus.async_listen(
-            f"{DOMAIN}_{EVENT_SYSTEM}", partial(async_update_sse_state, manager)
+        async_dispatcher_connect(
+            manager.hass,
+            f"{DOMAIN}_{EVENT_SYSTEM}",
+            partial(async_update_sse_state, manager),
         ),
-        manager.hass.bus.async_listen(
-            f"{DOMAIN}_{EVENT_DATA_CHANGE}", partial(async_update_data, manager)
-        ),
-        manager.hass.bus.async_listen(
+        async_dispatcher_connect(
+            manager.hass,
             f"{DOMAIN}_{EVENT_SWITCH_STATE_UPDATE}",
             partial(async_update_crwn_state_sse, manager),
         ),
-        manager.hass.bus.async_listen(
+        async_dispatcher_connect(
+            manager.hass,
             f"{DOMAIN}_{EVENT_ABILITY_CHANGE}",
             partial(async_update_crwn_ability, manager),
+        ),
+        async_dispatcher_connect(
+            manager.hass,
+            f"{DOMAIN}_{EVENT_DATA_CHANGE}",
+            partial(async_update_data, manager),
         ),
         manager.hass.bus.async_listen(
             f"{DOMAIN}_{EVENT_PRESENCE}",

@@ -16,10 +16,12 @@ CROWNSTONE_SUFFIX: Final = "crownstone"
 POWER_USAGE_SUFFIX: Final = "power_usage"
 ENERGY_USAGE_SUFFIX: Final = "energy_usage"
 PRESENCE_SUFFIX: Final = "presence"
+CONNECTION_SUFFIX: Final = "connection"
 
 # Entity name suffixes
 POWER_USAGE_NAME_SUFFIX: Final = "Power"
 ENERGY_USAGE_NAME_SUFFIX: Final = "Energy"
+CONNECTION_NAME_SUFFIX: Final = "Connection"
 
 # Signals (within integration)
 SIG_CROWNSTONE_STATE_UPDATE: Final = "crownstone.crownstone_state_update"
@@ -32,8 +34,10 @@ SIG_ADD_CROWNSTONE_DEVICES: Final = "crownstone.add_crownstone_device"
 SIG_ADD_PRESENCE_DEVICES: Final = "crownstone.add_presence_device"
 
 # Abilities
-ABILITY_STATE: Final[dict[bool, str]] = {True: "Enabled", False: "Disabled"}
 ABILITY: Final[dict[str, Any]] = {"enabled": False, "properties": {}}
+
+# Connections
+CONNECTIONS: Final[dict[bool, str]] = {False: "Cloud", True: "USB dongle"}
 
 # Config flow
 CONF_USB_PATH: Final = "usb_path"
