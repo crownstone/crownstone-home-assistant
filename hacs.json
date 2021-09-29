@@ -1,5 +1,5 @@
 {
-  "name": "Crownstone",
+  "name": "Crownstone Beta",
   "render_readme": true,
   "domains": ["light", "sensor"],
   "homeassistant": "2021.10.0",
