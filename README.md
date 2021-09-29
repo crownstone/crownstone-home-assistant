@@ -10,6 +10,8 @@
 
 Crownstone Home Assistant integration beta to test new features before they are integrated into the core version.
 
+The Crownstone integration is available in Home Assistant core since version 2021.10.0. It is however limited in features and only supports switching and dimming Crownstones for now. With time, features will be migrated from this version to the core version.
+
 This version supports the following extra features over the core integration:
 
 * Instant data (names and firmware version) updates
@@ -19,6 +21,8 @@ This version supports the following extra features over the core integration:
 * Presence devices/entities to keep track of who is in which room
 * Custom presence triggers that can be used in automations to make your whole home react to presence changes
 * Custom presence conditions that can be used in automations to check current presence of specific users in a room
+
+This version builds directly on top of the core integration, so the core is stable. The extra features have been tested well, but have not been reviewed by any Home Assistant members, it is therefore possible they are not fully optimized yet or contain bugs. For the most stable experience, we recommend using the core version. If you like the extra features, you can keep using the HACS version.
 
 ![Crownstone integration dashboard example](/images/dashboard.png)
 
@@ -61,9 +65,13 @@ In case you have multiple Spheres configured in the Crownstone app, you will hav
 If you did not set up a USB dongle from the beginning or the setup was unsuccessful, you can start the setup again at any point from the integration options.
 Go to configuration -> integrations, look for your Crownstone account and click **Configure**. 
 
-![Crownstone options](/images/crownstone_options.png)
+![Crownstone options disabled](/images/crownstone_options_disabled.png)
 
 When checking this option and clicking submit, you can instantly start configuring a Crownstone USB dongle. When a dongle was set up, this option will be checked. Unchecking this option will remove the existing USB configuration and use the Crownstone Cloud again.
+
+You can also change the Sphere where the USB is configured on the fly. This depends on where it is configured in the Crownstone app. It is quite rare that this changes, but in case you have a mobile instance you could add the USB to an other Sphere in the Crownstone app, and change this setting.
+
+![Crownstone options enabled](/images/crownstone_options_enabled.png)
 
 ## Comparison
 
@@ -94,6 +102,12 @@ Presence updates and data updates are always done using the Crownstone Cloud.
 - [x] Can use power usage & energy usage entities
 
 Get your Crownstone USB dongle [here](https://shop.crownstone.rocks/products/crownstone-usb-dongle) and enhance your Home Assistant experience!
+
+## Remote access
+
+In case you have multiple Spheres, only the Crownstones that are located in the same Sphere as the USB dongle can use the dongle, as it uses BLE and hooks directly into the Crownstone mesh network. The Crownstones from the other Spheres will use the Cloud. If you want to switch Crownstones in your other Spheres remotely, you will need a device at the receiving end to switch the Crownstones for you, as the Cloud only posts a command for the switch. This device is usually a smarthphone, or a Crownstone hub (gateway).
+
+In case you want to control your Home Assistant instance remotely and switch Crownstones, make sure you are using a Crownstone USB so it can switch Crownstones even when you're not home. It is recommended to use [Home Assistant Cloud](https://www.nabucasa.com/) (Nabu Casa) to easily set up a remote connection with your Home Assistant instance.
 
 # Crownstones
 
