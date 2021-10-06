@@ -6,6 +6,7 @@ from typing import Final
 import voluptuous as vol
 from voluptuous.validators import Any
 
+from homeassistant.components.binary_sensor import DEVICE_CLASS_PRESENCE
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
 )
@@ -135,7 +136,10 @@ async def async_get_conditions(
 
     for entry in entity_registry.async_entries_for_device(registry, device_id):
         # only support presence sensors, which have no device class
-        if entry.domain != SENSOR_DOMAIN or entry.device_class is not None:
+        if (
+            entry.domain != SENSOR_DOMAIN
+            and entry.device_class != DEVICE_CLASS_PRESENCE
+        ):
             continue
 
         base_condition = {
