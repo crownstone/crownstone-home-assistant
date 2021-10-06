@@ -173,11 +173,8 @@ async def async_get_triggers(
     triggers: list[dict[str, str]] = []
 
     for entry in entity_registry.async_entries_for_device(registry, device_id):
-        # only support presence sensors, which have no device class
-        if (
-            entry.domain != SENSOR_DOMAIN
-            and entry.device_class != DEVICE_CLASS_PRESENCE
-        ):
+        # only support presence sensors
+        if entry.domain != SENSOR_DOMAIN or entry.device_class != DEVICE_CLASS_PRESENCE:
             continue
 
         base_trigger = {
