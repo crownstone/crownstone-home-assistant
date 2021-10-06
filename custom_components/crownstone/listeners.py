@@ -46,12 +46,6 @@ from crownstone_sse.events import (
 from crownstone_uart import UartEventBus, UartTopics
 from crownstone_uart.topics.SystemTopics import SystemTopics
 
-from homeassistant.components.crownstone.helpers import (
-    async_remove_devices,
-    async_update_devices,
-    get_added_items,
-    get_removed_items,
-)
 from homeassistant.core import Event, callback
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -71,6 +65,12 @@ from .const import (
     SIG_UART_STATE_CHANGE,
     SSE_LISTENERS,
     UART_LISTENERS,
+)
+from .helpers import (
+    async_remove_devices,
+    async_update_devices,
+    get_added_items,
+    get_removed_items,
 )
 
 if TYPE_CHECKING:
