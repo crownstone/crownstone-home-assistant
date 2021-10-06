@@ -6,35 +6,35 @@
             "usb_setup_unsuccessful": "Crownstone USB configuratie is mislukt"
         },
         "error": {
-            "account_not_verified": "Account is niet geverifieerd. Activeer eerst uw account via de activatiemail die u van Crownstone heeft gehad",
+            "account_not_verified": "Account niet geverifieerd. Gelieve uw account te activeren via de activeringsmail van Crownstone",
             "invalid_auth": "Ongeldige authenticatie",
             "unknown": "Onverwachte fout"
         },
         "step": {
             "usb_config": {
                 "data": {
-                    "usb_path": "USB apparaatpad"
+                    "usb_path": "USB-apparaatpad"
                 },
-                "description": "Selecteer de seri\u00eble poort van de Crownstone USB stick, selecteer 'Don't use USB' als u geen USB stick wilt instellen.\n\nZoek een apparaat met VID 10C4 en PID EA60.",
-                "title": "Crownstone USB stick configuratie"
+                "description": "Selecteer de seri\u00eble poort van de Crownstone USB dongle, of selecteer 'Don't use USB' als u geen USB dongle wilt instellen.\n\nZoek naar een apparaat met VID 10C4 en PID EA60.",
+                "title": "Crownstone USB dongle configuratie"
             },
             "usb_manual_config": {
                 "data": {
-                    "usb_manual_path": "USB apparaatpad"
+                    "usb_manual_path": "USB-apparaatpad"
                 },
-                "description": "Voer handmatig het pad van een Crownstone USB stick in.",
-                "title": "Crownstone USB stick handmatige invoer"
+                "description": "Voer handmatig het pad van een Crownstone USB dongle in.",
+                "title": "Crownstone USB-dongle handmatig pad"
             },
             "usb_sphere_config": {
                 "data": {
                     "usb_sphere": "Crownstone Sfeer"
                 },
-                "description": "Selecteer een Crownstone Sfeer waarin de USB zich bevindt.",
+                "description": "Selecteer een Crownstone Sfeer waar de USB zich bevindt.",
                 "title": "Crownstone USB Sfeer"
             },
             "user": {
                 "data": {
-                    "email": "Email",
+                    "email": "E-mail",
                     "password": "Wachtwoord"
                 },
                 "title": "Crownstone account"
@@ -58,29 +58,29 @@
         "step": {
             "init": {
                 "data": {
-                    "usb_sphere_option": "Crownstone Sfeer waarin de USB zich bevindt",
-                    "use_usb_option": "Gebruik een Crownstone USB stick voor lokale datatransmissie"
+                    "usb_sphere_option": "Crownstone Sfeer waar de USB zich bevindt",
+                    "use_usb_option": "Gebruik een Crownstone USB-dongle voor lokale gegevensoverdracht"
                 }
             },
             "usb_config": {
                 "data": {
-                    "usb_path": "USB apparaatpad"
+                    "usb_path": "USB-apparaatpad"
                 },
-                "description": "Selecteer de seri\u00eble poort van de Crownstone USB stick.\n\nZoek een apparaat met VID 10C4 en PID EA60.",
-                "title": "Crownstone USB stick configuratie"
+                "description": "Selecteer de seri\u00eble poort van de Crownstone USB dongle.\n\nZoek naar een apparaat met VID 10C4 en PID EA60.",
+                "title": "Crownstone USB dongle configuratie"
             },
             "usb_manual_config": {
                 "data": {
-                    "usb_manual_path": "USB apparaatpad"
+                    "usb_manual_path": "USB-apparaatpad"
                 },
-                "description": "Voer handmatig het pad van een Crownstone USB stick in.",
-                "title": "Crownstone USB stick handmatige invoer"
+                "description": "Voer handmatig het pad van een Crownstone USB dongle in.",
+                "title": "Crownstone USB-dongle handmatig pad"
             },
             "usb_sphere_config": {
                 "data": {
                     "usb_sphere": "Crownstone Sfeer"
                 },
-                "description": "Selecteer een Crownstone Sfeer waarin de USB zich bevindt.",
+                "description": "Selecteer een Crownstone Sfeer waar de USB zich bevindt.",
                 "title": "Crownstone USB Sfeer"
             }
         }
