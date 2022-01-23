@@ -16,7 +16,7 @@ from homeassistant.components.automation import (
     AutomationActionType,
     AutomationTriggerInfo,
 )
-from homeassistant.components.binary_sensor import DEVICE_CLASS_PRESENCE
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.device_automation import DEVICE_TRIGGER_BASE_SCHEMA
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
@@ -174,7 +174,10 @@ async def async_get_triggers(
 
     for entry in entity_registry.async_entries_for_device(registry, device_id):
         # only support presence sensors
-        if entry.domain != SENSOR_DOMAIN or entry.device_class != DEVICE_CLASS_PRESENCE:
+        if (
+            entry.domain != SENSOR_DOMAIN
+            or entry.original_device_class != BinarySensorDeviceClass.PRESENCE
+        ):
             continue
 
         base_trigger = {

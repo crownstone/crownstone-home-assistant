@@ -2,11 +2,11 @@
     "config": {
         "abort": {
             "already_configured": "Account is al geconfigureerd",
-            "usb_setup_complete": "Crownstone USB configuratie is voltooid",
-            "usb_setup_unsuccessful": "Crownstone USB configuratie is mislukt"
+            "usb_setup_complete": "Crownstone USB installatie voltooid.",
+            "usb_setup_unsuccessful": "Crownstone USB installatie is mislukt."
         },
         "error": {
-            "account_not_verified": "Account niet geverifieerd. Gelieve uw account te activeren via de activeringsmail van Crownstone",
+            "account_not_verified": "Account niet geverifieerd. Gelieve uw account te activeren via de activeringsmail van Crownstone.",
             "invalid_auth": "Ongeldige authenticatie",
             "unknown": "Onverwachte fout"
         },

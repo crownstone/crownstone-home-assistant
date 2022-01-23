@@ -2,11 +2,11 @@
   "config": {
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_account%]",
-      "usb_setup_complete": "Crownstone USB setup complete",
-      "usb_setup_unsuccessful": "Crownstone USB setup was unsuccessful"
+      "usb_setup_complete": "Crownstone USB setup complete.",
+      "usb_setup_unsuccessful": "Crownstone USB setup was unsuccessful."
     },
     "error": {
-      "account_not_verified": "Account not verified. Please activate your account through the activation email from Crownstone",
+      "account_not_verified": "Account not verified. Please activate your account through the activation email from Crownstone.",
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },

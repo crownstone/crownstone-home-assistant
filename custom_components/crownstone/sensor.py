@@ -10,23 +10,14 @@ from crownstone_cloud.cloud_models.locations import Location
 from crownstone_cloud.cloud_models.spheres import Sphere
 from crownstone_uart import CrownstoneUart
 
-from homeassistant.components.binary_sensor import (
-    DEVICE_CLASS_CONNECTIVITY,
-    DEVICE_CLASS_PRESENCE,
-)
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import (
-    STATE_CLASS_MEASUREMENT,
-    STATE_CLASS_TOTAL_INCREASING,
+    SensorDeviceClass,
     SensorEntity,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    DEVICE_CLASS_ENERGY,
-    DEVICE_CLASS_POWER,
-    ENERGY_KILO_WATT_HOUR,
-    POWER_WATT,
-    STATE_UNAVAILABLE,
-)
+from homeassistant.const import ENERGY_KILO_WATT_HOUR, POWER_WATT, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -180,9 +171,9 @@ class PowerUsage(CrownstoneBaseEntity, SensorEntity):
     The state of this sensor is updated using local push events from a Crownstone USB.
     """
 
-    _attr_device_class = DEVICE_CLASS_POWER
+    _attr_device_class = SensorDeviceClass.POWER
     _attr_native_unit_of_measurement = POWER_WATT
-    _attr_state_class = STATE_CLASS_MEASUREMENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, crownstone_data: Crownstone, usb: CrownstoneUart) -> None:
         """Initialize the power usage entity."""
@@ -225,9 +216,9 @@ class EnergyUsage(CrownstoneBaseEntity, SensorEntity, RestoreEntity):
     The state of this sensor is updated using local push events from a Crownstone USB.
     """
 
-    _attr_device_class = DEVICE_CLASS_ENERGY
+    _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = ENERGY_KILO_WATT_HOUR
-    _attr_state_class = STATE_CLASS_TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(self, crownstone_data: Crownstone, usb: CrownstoneUart) -> None:
         """Initialize the energy usage entity."""
@@ -280,7 +271,7 @@ class Presence(PresenceBaseEntity):
     The state of this updated using the Crownstone SSE client via push events.
     """
 
-    _attr_device_class = DEVICE_CLASS_PRESENCE
+    _attr_device_class = BinarySensorDeviceClass.PRESENCE
 
     def __init__(
         self,
@@ -348,7 +339,7 @@ class Presence(PresenceBaseEntity):
 class Connection(CrownstoneBaseEntity):
     """Representation of a switch method entity."""
 
-    _attr_device_class = DEVICE_CLASS_CONNECTIVITY
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_icon = "mdi:signal-variant"
 
     def __init__(

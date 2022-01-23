@@ -8,8 +8,8 @@ from crownstone_cloud.cloud_models.locations import Location
 from serial.tools.list_ports_common import ListPortInfo
 
 from homeassistant.components import usb
-from homeassistant.components.binary_sensor import DEVICE_CLASS_CONNECTIVITY
-from homeassistant.const import DEVICE_CLASS_ENERGY, DEVICE_CLASS_POWER
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant, T, callback
 from homeassistant.helpers import device_registry, entity_registry
 
@@ -113,11 +113,11 @@ def async_update_devices(
                 continue
 
             new_name = crownstone_device.name
-            if entry.device_class == DEVICE_CLASS_CONNECTIVITY:
+            if entry.original_device_class == BinarySensorDeviceClass.CONNECTIVITY:
                 new_name = f"{new_name} {CONNECTION_NAME_SUFFIX}"
-            if entry.device_class == DEVICE_CLASS_POWER:
+            if entry.original_device_class == SensorDeviceClass.POWER:
                 new_name = f"{new_name} {POWER_USAGE_NAME_SUFFIX}"
-            if entry.device_class == DEVICE_CLASS_ENERGY:
+            if entry.original_device_class == SensorDeviceClass.ENERGY:
                 new_name = f"{new_name} {ENERGY_USAGE_NAME_SUFFIX}"
 
             ent_reg.async_update_entity(entry.entity_id, name=new_name)
