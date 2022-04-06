@@ -13,5 +13,5 @@
   "codeowners": ["@Crownstone", "@RicArch97"],
   "after_dependencies": ["usb"],
   "iot_class": "cloud_push",
-  "version": "2.0.4"
+  "version": "2.0.5"
 }
