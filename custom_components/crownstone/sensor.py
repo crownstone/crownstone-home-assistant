@@ -17,11 +17,10 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ENERGY_KILO_WATT_HOUR, POWER_WATT, STATE_UNAVAILABLE
+from homeassistant.const import ENERGY_KILO_WATT_HOUR, POWER_WATT
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import StateType
 
 from .const import (
@@ -209,7 +208,7 @@ class PowerUsage(CrownstoneBaseEntity, SensorEntity):
         )
 
 
-class EnergyUsage(CrownstoneBaseEntity, SensorEntity, RestoreEntity):
+class EnergyUsage(CrownstoneBaseEntity, SensorEntity):
     """
     Representation of an energy usage sensor.
 
@@ -244,12 +243,6 @@ class EnergyUsage(CrownstoneBaseEntity, SensorEntity, RestoreEntity):
 
     async def async_added_to_hass(self) -> None:
         """Set up listeners when this entity is added to HA."""
-        # Restore last state immediately otherwise the state will be 0
-        # until the USB dongle sends an update which can take a minute.
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state != STATE_UNAVAILABLE:
-            self.device.energy_usage = int(float(last_state.state) * JOULE_TO_KWH)
-
         # new state received
         self.async_on_remove(
             async_dispatcher_connect(

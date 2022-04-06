@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from typing import TypeVar
 
 from crownstone_cloud.cloud_models.crownstones import Crownstone
 from crownstone_cloud.cloud_models.locations import Location
@@ -10,7 +11,7 @@ from serial.tools.list_ports_common import ListPortInfo
 from homeassistant.components import usb
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.core import HomeAssistant, T, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry, entity_registry
 
 from .const import (
@@ -22,6 +23,8 @@ from .const import (
     POWER_USAGE_NAME_SUFFIX,
     REFRESH_LIST,
 )
+
+_T = TypeVar("_T")
 
 
 def list_ports_as_str(
@@ -73,12 +76,12 @@ def map_from_to(val: int, in_min: int, in_max: int, out_min: int, out_max: int) 
     return int((val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
 
 
-def get_removed_items(old_data: dict[str, T], new_data: dict[str, T]) -> list[T]:
+def get_removed_items(old_data: dict[str, _T], new_data: dict[str, _T]) -> list[_T]:
     """Return a list with removed items from a dict."""
     return [old_data[dev_id] for dev_id in old_data if dev_id not in new_data]
 
 
-def get_added_items(old_data: dict[str, T], new_data: dict[str, T]) -> list[T]:
+def get_added_items(old_data: dict[str, _T], new_data: dict[str, _T]) -> list[_T]:
     """Return a list with added items from a dict."""
     return [new_data[dev_id] for dev_id in new_data if dev_id not in old_data]
 
