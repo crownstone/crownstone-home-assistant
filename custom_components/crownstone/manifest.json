@@ -6,7 +6,7 @@
   "issue_tracker": "https://github.com/crownstone/crownstone-home-assistant/issues",
   "requirements": [
     "crownstone-cloud==1.4.9",
-    "crownstone-sse==2.0.3",
+    "crownstone-sse==2.0.4",
     "crownstone-uart==2.1.0",
     "pyserial==3.5"
   ],
